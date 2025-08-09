@@ -12,13 +12,11 @@
 #include <LivoxClient.h>
 #include <chrono>
 #include <fstream>
-#include <gpios.h>
 #include <iostream>
 #include <string>
 
 #define MANDEYE_LIVOX_LISTEN_IP "192.168.1.5"
 #define MANDEYE_REPO "/media/usb/"
-#define MANDEYE_GPIO_SIM false
 #define SERVER_PORT 8003
 
 namespace utils
@@ -69,15 +67,11 @@ std::atomic<bool> isLidarError{false};
 std::mutex livoxClientPtrLock;
 std::shared_ptr<LivoxClient> livoxCLientPtr;
 std::shared_ptr<GNSSClient> gnssClientPtr;
-std::mutex gpioClientPtrLock;
-std::shared_ptr<GpioClient> gpioClientPtr;
 std::shared_ptr<FileSystemClient> fileSystemClientPtr;
 std::shared_ptr<Publisher> publisherPtr;
 mandeye::LazStats lastFileSaveStats;
 double usbWriteSpeed10Mb = 0.0;
 double usbWriteSpeed1Mb = 0.0;
-
-bool disableBuzzer = false;
 mandeye::States app_state{mandeye::States::WAIT_FOR_RESOURCES};
 
 using json = nlohmann::json;
@@ -100,10 +94,6 @@ std::string produceReport(bool reportUSB = true)
 		j["livox"] = {};
 	}
 
-	if(gpioClientPtr)
-	{
-		j["gpio"] = gpioClientPtr->produceStatus();
-	}
 	j["fs_benchmark"]["write_speed_10mb"] = std::round(usbWriteSpeed10Mb * 100) / 100.0;
 	j["fs_benchmark"]["write_speed_1mb"] = std::round(usbWriteSpeed1Mb * 100) / 100.0;
 
@@ -390,272 +380,149 @@ void stateWatcher()
 		}
 		oldState = app_state;
 
-		if(app_state == States::LIDAR_ERROR)
-		{
-			if(mandeye::gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(1000ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, true);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(1000ms);
-				std::cout << "app_state == States::LIDAR_ERROR" << std::endl;
-				if(!disableBuzzer)
-				{
-					mandeye::gpioClientPtr->beep({2000, 100, 2000, 100, 2000, 100, 10000});
-				}
-			}
-		}
-		if(app_state == States::USB_IO_ERROR)
-		{
-			if(mandeye::gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(1000ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(1000ms);
-				std::cout << "app_state == States::USB_IO_ERROR" << std::endl;
-				if(!disableBuzzer)
-				{
-					mandeye::gpioClientPtr->beep({2000, 100, 2000, 100, 2000, 100, 5000});
-				}
-			}
-		}
-		else if(app_state == States::WAIT_FOR_RESOURCES)
-		{
-			std::this_thread::sleep_for(100ms);
-			std::lock_guard<std::mutex> l1(livoxClientPtrLock);
-			std::lock_guard<std::mutex> l2(gpioClientPtrLock);
-			if(mandeye::gpioClientPtr && mandeye::fileSystemClientPtr)
-			{
-				app_state = States::IDLE;
-				// play hello beep
-				if(!disableBuzzer)
-				{
-					mandeye::gpioClientPtr->beep({100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50}); // beep, beep, beeeeeep
-				}
-			}
-			if(mandeye::publisherPtr)
-			{
-				mandeye::publisherPtr->SetWorkingDirectory(stopScanDirectory, continousScanDirectory);
-			}
-		}
-		else if(app_state == States::IDLE)
-		{
-			if(isLidarError)
-			{
-				app_state = States::LIDAR_ERROR;
-			}
-			if(gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-			}
-			std::this_thread::sleep_for(100ms);
-		}
-		else if(app_state == States::STARTING_SCAN)
-		{
-			//chunksInExperiment = 0;
-			if(gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(100ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(100ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(100ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(100ms);
-			}
-
-			if(livoxCLientPtr)
-			{
-				livoxCLientPtr->startLog();
-				if(gnssClientPtr)
-				{
-					gnssClientPtr->startLog();
-				}
-				app_state = States::SCANNING;
-			}
-			// create directory
+                if(app_state == States::LIDAR_ERROR)
+                {
+                        std::this_thread::sleep_for(1000ms);
+                        std::cout << "app_state == States::LIDAR_ERROR" << std::endl;
+                }
+                if(app_state == States::USB_IO_ERROR)
+                {
+                        std::this_thread::sleep_for(1000ms);
+                        std::cout << "app_state == States::USB_IO_ERROR" << std::endl;
+                }
+                else if(app_state == States::WAIT_FOR_RESOURCES)
+                {
+                        std::this_thread::sleep_for(100ms);
+                        std::lock_guard<std::mutex> l1(livoxClientPtrLock);
+                        if(mandeye::fileSystemClientPtr)
+                        {
+                                app_state = States::IDLE;
+                        }
+                        if(mandeye::publisherPtr)
+                        {
+                                mandeye::publisherPtr->SetWorkingDirectory(stopScanDirectory, continousScanDirectory);
+                        }
+                }
+                else if(app_state == States::IDLE)
+                {
+                        if(isLidarError)
+                        {
+                                app_state = States::LIDAR_ERROR;
+                        }
+                        std::this_thread::sleep_for(100ms);
+                }
+                else if(app_state == States::STARTING_SCAN)
+                {
+                        //chunksInExperiment = 0;
+                        if(livoxCLientPtr)
+                        {
+                                livoxCLientPtr->startLog();
+                                if(gnssClientPtr)
+                                {
+                                        gnssClientPtr->startLog();
+                                }
+                                app_state = States::SCANNING;
+                        }
+                        // create directory
 			//if(!fileSystemClientPtr->CreateDirectoryForExperiment(continousScanDirectory)){
 			//	app_state = States::USB_IO_ERROR;
 			//}
 			chunkStart = std::chrono::steady_clock::now();
 		}
-		else if(app_state == States::SCANNING || app_state == States::STOPPING_STAGE_1 || app_state == States::STOPPING_STAGE_2)
-		{
-			if(gpioClientPtr)
-			{
-				if(app_state == States::SCANNING)
-				{
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				}
-			}
+                else if(app_state == States::SCANNING || app_state == States::STOPPING_STAGE_1 || app_state == States::STOPPING_STAGE_2)
+                {
+                        const auto now = std::chrono::steady_clock::now();
+                        if(now - chunkStart > std::chrono::seconds(10) && app_state == States::SCANNING)
+                        {
+                                chunkStart = std::chrono::steady_clock::now();
 
-			const auto now = std::chrono::steady_clock::now();
-			if(now - chunkStart > std::chrono::seconds(60))
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(1000ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(1000ms);
-			}
-			if(now - chunkStart > std::chrono::seconds(600))
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(100ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(100ms);
-			}
-			if(now - chunkStart > std::chrono::seconds(10) && app_state == States::SCANNING)
-			{
+                                auto [lidarBuffer, imuBuffer] = livoxCLientPtr->retrieveData();
+                                std::deque<std::string> gnssBuffer;
+                                std::deque<std::string> gnssRawBuffer;
 
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
+                                if(gnssClientPtr)
+                                {
+                                        gnssBuffer = gnssClientPtr->retrieveData();
+                                        gnssRawBuffer = gnssClientPtr->retrieveRawData();
+                                }
+                                if(continousScanDirectory == "")
+                                {
+                                        app_state = States::USB_IO_ERROR;
+                                }
+                                else
+                                {
+                                        savePointcloudData(lidarBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                        saveImuData(imuBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                        saveStatusData(continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                        auto lidarList = livoxCLientPtr->getSerialNumberToLidarIdMapping();
+                                        saveLidarList(lidarList, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                        if(gnssClientPtr)
+                                        {
+                                                saveGnssData(gnssBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                                saveGnssRawData(gnssRawBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                        }
+                                        chunksInExperimentCS++;
+                                }
+                        }
 
-				chunkStart = std::chrono::steady_clock::now();
+                        if(app_state == States::STOPPING_STAGE_1)
+                        {
+                                std::cout << "app_state == States::STOPPING_STAGE_1" << std::endl;
 
-				auto [lidarBuffer, imuBuffer] = livoxCLientPtr->retrieveData();
-				std::deque<std::string> gnssBuffer;
-				std::deque<std::string> gnssRawBuffer;
+                                const auto now = std::chrono::steady_clock::now();
 
-				if(gnssClientPtr)
-				{
-					gnssBuffer = gnssClientPtr->retrieveData();
-					gnssRawBuffer = gnssClientPtr->retrieveRawData();
-				}
-				if(continousScanDirectory == "")
-				{
-					app_state = States::USB_IO_ERROR;
-				}
-				else
-				{
-					savePointcloudData(lidarBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-					saveImuData(imuBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-					saveStatusData(continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-					auto lidarList = livoxCLientPtr->getSerialNumberToLidarIdMapping();
-					saveLidarList(lidarList, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-					if(gnssClientPtr)
-					{
-						saveGnssData(gnssBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-						saveGnssRawData(gnssRawBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-					}
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-					chunksInExperimentCS++;
-				}
-			}
+                                if(now > stoppingStage1StartDeadline)
+                                {
+                                        app_state = States::SCANNING;
+                                }
+                        }
 
-			if(app_state == States::STOPPING_STAGE_1)
-			{
-				std::cout << "app_state == States::STOPPING_STAGE_1" << std::endl;
+                        if(app_state == States::STOPPING_STAGE_2)
+                        {
+                                std::cout << "app_state == States::STOPPING_STAGE_2" << std::endl;
 
-				const auto now = std::chrono::steady_clock::now();
+                                const auto now = std::chrono::steady_clock::now();
 
-				if(now > stoppingStage1StartDeadlineChangeLed)
-				{
-					static bool led_1 = true;
-
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, led_1);
-
-					led_1 = !led_1;
-
-					stoppingStage1StartDeadlineChangeLed = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
-				}
-
-				if(now > stoppingStage1StartDeadline)
-				{
-					app_state = States::SCANNING;
-				}
-			}
-
-			if(app_state == States::STOPPING_STAGE_2)
-			{
-				std::cout << "app_state == States::STOPPING_STAGE_2" << std::endl;
-
-				const auto now = std::chrono::steady_clock::now();
-
-				if(now > stoppingStage2StartDeadlineChangeLed)
-				{
-					static bool led_2 = true;
-
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, led_2);
-
-					led_2 = !led_2;
-
-					stoppingStage2StartDeadlineChangeLed = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
-				}
-
-				if(now > stoppingStage2StartDeadline)
-				{
-					app_state = States::SCANNING;
-				}
-			}
+                                if(now > stoppingStage2StartDeadline)
+                                {
+                                        app_state = States::SCANNING;
+                                }
+                        }
 
 			std::this_thread::sleep_for(20ms);
 		}
-		else if(app_state == States::STOPPING)
-		{
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
+                else if(app_state == States::STOPPING)
+                {
+                        auto [lidarBuffer, imuBuffer] = livoxCLientPtr->retrieveData();
+                        std::deque<std::string> gnssData;
+                        livoxCLientPtr->stopLog();
+                        if(gnssClientPtr)
+                        {
+                                gnssData = gnssClientPtr->retrieveData();
+                                gnssClientPtr->stopLog();
+                        }
 
-			auto [lidarBuffer, imuBuffer] = livoxCLientPtr->retrieveData();
-			std::deque<std::string> gnssData;
-			livoxCLientPtr->stopLog();
-			if(gnssClientPtr)
-			{
-				gnssData = gnssClientPtr->retrieveData();
-				gnssClientPtr->stopLog();
-			}
-
-			for(int i = 0; i < 20; i++)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-				std::this_thread::sleep_for(50ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-				std::this_thread::sleep_for(50ms);
-			}
-
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
-
-			if(continousScanDirectory.empty())
-			{
-				app_state = States::USB_IO_ERROR;
-			}
-			else
-			{
-				savePointcloudData(lidarBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-				saveImuData(imuBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-				saveStatusData(continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-				auto lidarList = livoxCLientPtr->getSerialNumberToLidarIdMapping();
-				saveLidarList(lidarList, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-				if(gnssClientPtr)
-				{
-					saveGnssData(gnssData, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
-				}
-				chunksInExperimentCS++;
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				app_state = States::IDLE;
-			}
-		}
+                        if(continousScanDirectory.empty())
+                        {
+                                app_state = States::USB_IO_ERROR;
+                        }
+                        else
+                        {
+                                savePointcloudData(lidarBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                saveImuData(imuBuffer, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                saveStatusData(continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                auto lidarList = livoxCLientPtr->getSerialNumberToLidarIdMapping();
+                                saveLidarList(lidarList, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                if(gnssClientPtr)
+                                {
+                                        saveGnssData(gnssData, continousScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
+                                }
+                                chunksInExperimentCS++;
+                                app_state = States::IDLE;
+                        }
+                }
 		else if(app_state == States::STARTING_STOP_SCAN)
 		{
-			if(gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-			}
 			//if (stopScanDirectory.empty() && fileSystemClientPtr)
 			//{
 			//	if(!fileSystemClientPtr->CreateDirectoryForStopScans(stopScanDirectory)){
@@ -677,26 +544,22 @@ void stateWatcher()
 		{
 			const auto now = std::chrono::steady_clock::now();
 
-			if(now < stopScanInitialDeadline)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				std::this_thread::sleep_for(100ms);
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, true);
-				std::this_thread::sleep_for(100ms);
-			}
-			else
-			{
-				if(livoxCLientPtr)
-				{
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, true);
-					livoxCLientPtr->startLog();
-				}
-				if(gnssClientPtr)
-				{
-					gnssClientPtr->startLog();
-				}
-				app_state = States::STOP_SCAN_IN_PROGRESS;
-			}
+                        if(now < stopScanInitialDeadline)
+                        {
+                                std::this_thread::sleep_for(200ms);
+                        }
+                        else
+                        {
+                                if(livoxCLientPtr)
+                                {
+                                        livoxCLientPtr->startLog();
+                                }
+                                if(gnssClientPtr)
+                                {
+                                        gnssClientPtr->startLog();
+                                }
+                                app_state = States::STOP_SCAN_IN_PROGRESS;
+                        }
 		}
 		else if(app_state == States::STOP_SCAN_IN_PROGRESS)
 		{
@@ -708,10 +571,6 @@ void stateWatcher()
 		}
 		else if(app_state == States::STOPING_STOP_SCAN)
 		{
-			if(gpioClientPtr)
-			{
-				mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
-			}
 			auto [lidarBuffer, imuBuffer] = livoxCLientPtr->retrieveData();
 			std::deque<std::string> gnssData;
 			livoxCLientPtr->stopLog();
@@ -736,12 +595,6 @@ void stateWatcher()
 					saveGnssData(gnssData, stopScanDirectory, chunksInExperimentCS + chunksInExperimentSS);
 				}
 				chunksInExperimentSS++;
-
-				if(gpioClientPtr)
-				{
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-					mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-				}
 				app_state = States::IDLE;
 			}
 		}
@@ -831,9 +684,6 @@ int main(int argc, char** argv)
 	std::cout << "program: " << argv[0] << " " << MANDEYE_VERSION << " " << MANDEYE_HARDWARE_HEADER << std::endl;
 	Address addr(Ipv4::any(), SERVER_PORT);
 
-	mandeye::disableBuzzer = utils::getEnvBool("MANDEYE_DISABLE_BUZZER", false);
-
-	std::cout << "Buzzer is " << (mandeye::disableBuzzer ? "disabled" : "enabled") << std::endl;
 	auto server = std::make_shared<Http::Endpoint>(addr);
 	std::thread http_thread1([&]() {
 		auto opts = Http::Endpoint::options().threads(2);
@@ -854,65 +704,23 @@ int main(int argc, char** argv)
 		}
 
 		// intialize in this thread to prevent initialization fiasco
-		const std::string portName = hardware::GetGNSSPort();
-		const auto baud = hardware::GetGNSSBaudrate();
-		if(!portName.empty())
-		{
-			mandeye::gnssClientPtr = std::make_shared<mandeye::GNSSClient>();
-			mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
-			mandeye::gnssClientPtr->startListener(portName, baud);
-
-			// set callback
-			mandeye::gnssClientPtr->setDataCallback([&](const minmea_sentence_gga& gga) {
-				if(mandeye::gpioClientPtr && gga.fix_quality > 0 && gga.satellites_tracked > 5 &&
-				   !mandeye::disableBuzzer) // if any fix quality is available
-				{
-					std::lock_guard<std::mutex> l2(mandeye::gpioClientPtrLock);
-					mandeye::gpioClientPtr->setLed(hardware::LED::BUZZER, true);
-					std::this_thread::sleep_for(std::chrono::milliseconds(10));
-					mandeye::gpioClientPtr->setLed(hardware::LED::BUZZER, false);
-				}
-			});
-		}
+                const std::string portName = "";
+                const auto baud = 0;
+                if(!portName.empty())
+                {
+                        mandeye::gnssClientPtr = std::make_shared<mandeye::GNSSClient>();
+                        mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
+                        mandeye::gnssClientPtr->startListener(portName, baud);
+                }
 		// start zeromq publisher
 		mandeye::publisherPtr = std::make_shared<mandeye::Publisher>();
 		mandeye::publisherPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
 	});
 
-	std::thread thStateMachine([&]() { mandeye::stateWatcher(); });
+        std::thread thStateMachine([&]() { mandeye::stateWatcher(); });
 
-	std::thread thGpio([&]() {
-		std::lock_guard<std::mutex> l2(mandeye::gpioClientPtrLock);
-		using namespace std::chrono_literals;
-		const bool simMode = utils::getEnvBool("MANDEYE_GPIO_SIM", MANDEYE_GPIO_SIM);
-
-		std::cout << "MANDEYE_GPIO_SIM : " << simMode << std::endl;
-		mandeye::gpioClientPtr = std::make_shared<mandeye::GpioClient>(simMode);
-		for(int i = 0; i < 3; i++)
-		{
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, true);
-			std::this_thread::sleep_for(100ms);
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_STOP_SCAN, false);
-			std::this_thread::sleep_for(100ms);
-
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, true);
-			std::this_thread::sleep_for(100ms);
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_CONTINOUS_SCANNING, false);
-			std::this_thread::sleep_for(100ms);
-
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, true);
-			std::this_thread::sleep_for(100ms);
-			mandeye::gpioClientPtr->setLed(hardware::LED::LED_GPIO_COPY_DATA, false);
-			std::this_thread::sleep_for(100ms);
-		}
-		std::cout << "GPIO Init done" << std::endl;
-		mandeye::gpioClientPtr->addButtonCallback(hardware::BUTTON::BUTTON_STOP_SCAN, "BUTTON_STOP_SCAN", [&]() { mandeye::TriggerStopScan(); });
-		mandeye::gpioClientPtr->addButtonCallback(
-			hardware::BUTTON::BUTTON_CONTINOUS_SCANNING, "BUTTON_CONTINOUS_SCANNING", [&]() { mandeye::TriggerContinousScanning(); });
-	});
-
-	while(mandeye::isRunning)
-	{
+        while(mandeye::isRunning)
+        {
 		using namespace std::chrono_literals;
 		std::this_thread::sleep_for(1000ms);
 		char ch = std::getchar();
@@ -943,11 +751,8 @@ int main(int argc, char** argv)
 	std::cout << "joining thStateMachine" << std::endl;
 	thStateMachine.join();
 
-	std::cout << "joining thLivox" << std::endl;
-	thLivox.join();
-
-	std::cout << "joining thGpio" << std::endl;
-	thGpio.join();
+        std::cout << "joining thLivox" << std::endl;
+        thLivox.join();
 	std::cout << "Done" << std::endl;
 	return 0;
 }
