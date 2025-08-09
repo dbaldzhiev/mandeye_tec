@@ -2,13 +2,14 @@
 
 namespace mandeye
 {
-Publisher::Publisher()
-	: m_context(1)
-	, m_publisher(m_context, ZMQ_PUB)
+Publisher::Publisher(int port)
+        : m_context(1)
+        , m_publisher(m_context, ZMQ_PUB)
 {
-	m_publisher.bind("tcp://*:5556");
-	m_publisher.setsockopt(ZMQ_CONFLATE, 1); // Keep only the latest task
-	m_thread = std::thread(&Publisher::worker, this);
+        std::string endpoint = "tcp://*:" + std::to_string(port);
+        m_publisher.bind(endpoint);
+        m_publisher.setsockopt(ZMQ_CONFLATE, 1); // Keep only the latest task
+        m_thread = std::thread(&Publisher::worker, this);
 }
 Publisher::~Publisher()
 {
