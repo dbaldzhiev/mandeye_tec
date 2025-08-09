@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Mandeye</title>
+    <script>
+      function updateStatus(){
+        fetch('/status').then(r=>r.text()).then(t=>document.getElementById('status').textContent=t);
+      }
+      function call(url){ fetch(url); }
+      setInterval(updateStatus, 5000);
+    </script>
+  </head>
+  <body onload="updateStatus()">
+    <h1>Mandeye Status</h1>
+    <pre id="status">{{ status }}</pre>
+    <button onclick="call('/start_scan')">Start Scan</button>
+    <button onclick="call('/stop_scan')">Stop Scan</button>
+    <button onclick="call('/stopscan')">Trigger Stop Scan</button>
+    <button onclick="updateStatus()">Refresh Status</button>
+  </body>
+</html>
