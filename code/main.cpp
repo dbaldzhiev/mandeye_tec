@@ -229,7 +229,7 @@ void savePointcloudData(LivoxPointsBufferPtr buffer, const std::string& director
 	const auto start = std::chrono::steady_clock::now();
 	snprintf(lidarName, 256, "lidar%04d.laz", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-    LOG_INFO("Savig lidar buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath);
+    LOG_INFO("Savig lidar buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath.string());
 	auto saveStatus = saveLaz(lidarFilePath.string(), buffer);
 
 	system("sync");
@@ -249,7 +249,7 @@ void saveLidarList(const std::unordered_map<uint32_t, std::string>& lidars, cons
 	char lidarName[256];
 	snprintf(lidarName, 256, "lidar%04d.sn", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-    LOG_INFO("Savig lidar list of size " + std::to_string(lidars.size()) + " to " + lidarFilePath);
+    LOG_INFO("Savig lidar list of size " + std::to_string(lidars.size()) + " to " + lidarFilePath.string());
 
 	std::ofstream lidarStream(lidarFilePath);
 	for(const auto& [id, sn] : lidars)
@@ -266,7 +266,7 @@ void saveStatusData(const std::string& directory, int chunk)
 	char statusName[256];
 	snprintf(statusName, 256, "status%04d.json", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(statusName);
-    LOG_INFO("Savig status to " + lidarFilePath);
+    LOG_INFO(std::string("Savig status to ") + lidarFilePath.string());
 	std::ofstream lidarStream(lidarFilePath);
 	lidarStream << produceReport(false);
 	system("sync");
@@ -278,7 +278,7 @@ void saveImuData(LivoxIMUBufferPtr buffer, const std::string& directory, int chu
 	char lidarName[256];
 	snprintf(lidarName, 256, "imu%04d.csv", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-    LOG_INFO("Savig imu buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath);
+    LOG_INFO("Savig imu buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath.string());
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	lidarStream << "timestamp gyroX gyroY gyroZ accX accY accZ imuId timestampUnix\n";
 	std::stringstream ss;
