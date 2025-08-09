@@ -4,15 +4,34 @@
     <title>Mandeye</title>
     <script>
       function updateStatus(){
-        fetch('/status').then(r=>r.text()).then(t=>document.getElementById('status').textContent=t);
+        fetch('/status')
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('livox').textContent = JSON.stringify(data.livox, null, 2);
+            document.getElementById('gnss').textContent = JSON.stringify(data.gnss, null, 2);
+            document.getElementById('fs').textContent = JSON.stringify(data.fs || {}, null, 2);
+            document.getElementById('status').textContent = JSON.stringify(data, null, 2);
+          });
       }
       function call(url){ fetch(url); }
-      setInterval(updateStatus, 5000);
+      setInterval(updateStatus, 1000);
     </script>
   </head>
   <body onload="updateStatus()">
     <h1>Mandeye Status</h1>
-    <pre id="status">{{ status }}</pre>
+
+    <h2>Lidar</h2>
+    <pre id="livox"></pre>
+
+    <h2>GNSS</h2>
+    <pre id="gnss"></pre>
+
+    <h2>Filesystem</h2>
+    <pre id="fs"></pre>
+
+    <h2>Full Status</h2>
+    <pre id="status"></pre>
+
     <button onclick="call('/start_scan')">Start Scan</button>
     <button onclick="call('/stop_scan')">Stop Scan</button>
     <button onclick="call('/stopscan')">Trigger Stop Scan</button>
