@@ -1,7 +1,10 @@
 #include "gnss.h"
-#include <iostream>
+#include "utils/logger.h"
 #include <thread>
 #include <exception>
+#include <sstream>
+#include <string>
+#include <iomanip>
 #include "minmea.h"
 
 namespace mandeye
@@ -70,7 +73,7 @@ bool GNSSClient::startListener(const std::string& portName, LibSerial::BaudRate 
 		m_serialPortThread = std::thread(&GNSSClient::worker, this);
 	}catch(std::exception& e)
 	{
-		std::cout << "Failed to open port " << portName <<" : " << e.what()  << std::endl;
+                LOG_ERROR("Failed to open port " + portName + " : " + e.what());
 		init_succes = false;
 		return false;
 	}
@@ -79,7 +82,7 @@ bool GNSSClient::startListener(const std::string& portName, LibSerial::BaudRate 
 
 void GNSSClient::worker()
 {
-	std::cout << "Worker started" << std::endl;
+        LOG_INFO("Worker started");
 	while(m_serialPort.IsOpen())
 	{
 		std::string line;
@@ -115,7 +118,7 @@ void GNSSClient::worker()
 		}
 		else
 		{
-			std::cout << "Invalid line: " << line << std::endl;
+                        LOG_WARN("Invalid line: " + line);
 		}
 	}
 

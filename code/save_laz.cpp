@@ -1,5 +1,5 @@
 #include "save_laz.h"
-#include <iostream>
+#include "utils/logger.h"
 #include <laszip/laszip_api.h>
 
 nlohmann::json mandeye::LazStats::produceStatus() const {
@@ -42,7 +42,7 @@ std::optional<mandeye::LazStats> mandeye::saveLaz(const std::string& filename, L
 		min_z = std::min(min_z, z);
 	}
 
-	std::cout << "processing: " << filename << "points " << buffer->size() << std::endl;
+     LOG_INFO("processing: " + filename + "points " + std::to_string(buffer->size()));
 
 	laszip_POINTER laszip_writer;
 	if(laszip_create(&laszip_writer))
@@ -176,7 +176,7 @@ std::optional<mandeye::LazStats> mandeye::saveLaz(const std::string& filename, L
 		return nullopt;
 	}
 
-	std::cout << "exportLaz DONE" << std::endl;
+    LOG_INFO("exportLaz DONE");
 
 	const auto end = std::chrono::high_resolution_clock::now();
 	const std::chrono::duration<float> elapsed_seconds = end - start;

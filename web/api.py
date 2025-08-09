@@ -1,10 +1,15 @@
 import ctypes
 import json
+import os
+import time
 import zmq
+from collections import deque
 from flask import Blueprint, Response, jsonify, current_app
 from backend import lib, status_cache
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+LOG_FILE = os.path.join(os.path.dirname(__file__), '..', 'logs', 'mandeye.log')
 
 
 @api_bp.route('/status')
@@ -57,3 +62,27 @@ def zmq_event_stream(port):
 def stream():
     port = current_app.config.get('server_port', 8003)
     return Response(zmq_event_stream(port), mimetype='text/event-stream')
+
+
+def log_event_stream():
+    def generate():
+        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+        try:
+            with open(LOG_FILE, 'r') as f:
+                buf = deque(f, maxlen=200)
+                for line in buf:
+                    yield f"data: {line.rstrip()}\n\n"
+                while True:
+                    line = f.readline()
+                    if line:
+                        yield f"data: {line.rstrip()}\n\n"
+                    else:
+                        time.sleep(1)
+        except FileNotFoundError:
+            pass
+    return Response(generate(), mimetype='text/event-stream')
+
+
+@api_bp.route('/logs')
+def logs():
+    return log_event_stream()
