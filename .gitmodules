@@ -1,15 +1,9 @@
-[submodule "3rd/incbin"]
-	path = 3rd/incbin
-	url = https://github.com/graphitemaster/incbin.git
 [submodule "3rd/LASzip"]
-	path = 3rd/LASzip
-	url = https://github.com/LASzip/LASzip.git
-[submodule "3rd/pistache"]
-	path = 3rd/pistache
-	url = https://github.com/pistacheio/pistache.git
+    path = 3rd/LASzip
+    url = https://github.com/LASzip/LASzip.git
 [submodule "3rd/libserial"]
-	path = 3rd/libserial
-	url = https://github.com/crayzeewulf/libserial.git
+    path = 3rd/libserial
+    url = https://github.com/crayzeewulf/libserial.git
 [submodule "3rd/minmea"]
     path = 3rd/minmea
     url = https://github.com/kosma/minmea.git
