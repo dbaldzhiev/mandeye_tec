@@ -32,9 +32,6 @@ message("Livox SDK2")
 # Livox SDK2
 add_subdirectory(3rd/Livox-SDK2)
 
-# extras
-add_subdirectory(extras)
-
 include_directories(code/)
 
 # NMEA and libserial
@@ -97,10 +94,6 @@ target_link_libraries(button_demo gpiod pthread)
 install(TARGETS control_program led_demo fake_pps button_demo
         RUNTIME DESTINATION /opt/mandeye/)
 
-install(FILES packing/helpers.sh DESTINATION /opt/mandeye/)
-install(FILES packing/helpers.sh DESTINATION /opt/mandeye/)
-install(FILES packing/services/mandeye_controller.service  DESTINATION /usr/lib/systemd/system)
-install(FILES packing/services/mandeye_fake_pps.service  DESTINATION /usr/lib/systemd/system)
 
 # Packaging
 set(CPACK_GENERATOR "DEB")
@@ -108,5 +101,4 @@ set(CPACK_PACKAGE_NAME "mandeye-multisensor")
 set(CPACK_PACKAGE_VERSION "${MANDEYE_VERSION}-${GIT_HASH}-${MANDEYE_HARDWARE_HEADER}-${SYSTEM_ARCH}")
 set(CPACK_PACKAGE_CONTACT "Michał Pełka <michalpelka@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "rapidjson-dev,libserial-dev, libgpiod-dev, libzmq3-dev")
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/packing/postinst/postinst")
 include(CPack)
