@@ -12,7 +12,7 @@
 #include <LivoxClient.h>
 #include <chrono>
 #include <fstream>
-#include <iostream>
+#include "utils/logger.h"
 #include <string>
 
 #define MANDEYE_LIVOX_LISTEN_IP "192.168.1.5"
@@ -229,7 +229,7 @@ void savePointcloudData(LivoxPointsBufferPtr buffer, const std::string& director
 	const auto start = std::chrono::steady_clock::now();
 	snprintf(lidarName, 256, "lidar%04d.laz", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-	std::cout << "Savig lidar buffer of size " << buffer->size() << " to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig lidar buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath);
 	auto saveStatus = saveLaz(lidarFilePath.string(), buffer);
 
 	system("sync");
@@ -249,7 +249,7 @@ void saveLidarList(const std::unordered_map<uint32_t, std::string>& lidars, cons
 	char lidarName[256];
 	snprintf(lidarName, 256, "lidar%04d.sn", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-	std::cout << "Savig lidar list of size " << lidars.size() << " to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig lidar list of size " + std::to_string(lidars.size()) + " to " + lidarFilePath);
 
 	std::ofstream lidarStream(lidarFilePath);
 	for(const auto& [id, sn] : lidars)
@@ -266,7 +266,7 @@ void saveStatusData(const std::string& directory, int chunk)
 	char statusName[256];
 	snprintf(statusName, 256, "status%04d.json", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(statusName);
-	std::cout << "Savig status to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig status to " + lidarFilePath);
 	std::ofstream lidarStream(lidarFilePath);
 	lidarStream << produceReport(false);
 	system("sync");
@@ -278,7 +278,7 @@ void saveImuData(LivoxIMUBufferPtr buffer, const std::string& directory, int chu
 	char lidarName[256];
 	snprintf(lidarName, 256, "imu%04d.csv", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-	std::cout << "Savig imu buffer of size " << buffer->size() << " to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig imu buffer of size " + std::to_string(buffer->size()) + " to " + lidarFilePath);
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	lidarStream << "timestamp gyroX gyroY gyroZ accX accY accZ imuId timestampUnix\n";
 	std::stringstream ss;
@@ -304,7 +304,7 @@ void saveGnssData(std::deque<std::string>& buffer, const std::string& directory,
 	char lidarName[256];
 	snprintf(lidarName, 256, "gnss%04d.gnss", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-	std::cout << "Savig gnss buffer of size " << buffer.size() << " to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig gnss buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath);
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	std::stringstream ss;
 
@@ -325,7 +325,7 @@ void saveGnssRawData(std::deque<std::string>& buffer, const std::string& directo
 	char lidarName[256];
 	snprintf(lidarName, 256, "gnss%04d.nmea", chunk);
 	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-	std::cout << "Savig gnss raw buffer of size " << buffer.size() << " to " << lidarFilePath << std::endl;
+    LOG_INFO("Savig gnss raw buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath);
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	std::stringstream ss;
 
@@ -372,10 +372,10 @@ void stateWatcher()
 	if(fileSystemClientPtr)
 	{
 #ifdef MANDEYE_BENCHMARK_WRITE_SPEED
-		std::cout << "Benchmarking write speed" << std::endl;
+            LOG_INFO("Benchmarking write speed");
 		mandeye::usbWriteSpeed10Mb = fileSystemClientPtr->BenchmarkWriteSpeed("benchmark10.bin", 10);
 		mandeye::usbWriteSpeed1Mb = fileSystemClientPtr->BenchmarkWriteSpeed("benchmark1.bin", 1);
-		std::cout << "Benchmarking write speed done" << std::endl;
+            LOG_INFO("Benchmarking write speed done");
 #endif
 	}
 
@@ -387,19 +387,19 @@ void stateWatcher()
 		}
 		if(oldState != app_state)
 		{
-			std::cout << "State transtion from " << StatesToString.at(oldState) << " to " << StatesToString.at(app_state) << std::endl;
+                    LOG_INFO("State transtion from " + StatesToString.at(oldState) + " to " + StatesToString.at(app_state));
 		}
 		oldState = app_state;
 
                 if(app_state == States::LIDAR_ERROR)
                 {
                         std::this_thread::sleep_for(1000ms);
-                        std::cout << "app_state == States::LIDAR_ERROR" << std::endl;
+                        LOG_ERROR("app_state == States::LIDAR_ERROR");
                 }
                 if(app_state == States::USB_IO_ERROR)
                 {
                         std::this_thread::sleep_for(1000ms);
-                        std::cout << "app_state == States::USB_IO_ERROR" << std::endl;
+                        LOG_ERROR("app_state == States::USB_IO_ERROR");
                 }
                 else if(app_state == States::WAIT_FOR_RESOURCES)
                 {
@@ -478,7 +478,7 @@ void stateWatcher()
 
                         if(app_state == States::STOPPING_STAGE_1)
                         {
-                                std::cout << "app_state == States::STOPPING_STAGE_1" << std::endl;
+                                LOG_INFO("app_state == States::STOPPING_STAGE_1");
 
                                 const auto now = std::chrono::steady_clock::now();
 
@@ -490,7 +490,7 @@ void stateWatcher()
 
                         if(app_state == States::STOPPING_STAGE_2)
                         {
-                                std::cout << "app_state == States::STOPPING_STAGE_2" << std::endl;
+                                LOG_INFO("app_state == States::STOPPING_STAGE_2");
 
                                 const auto now = std::chrono::steady_clock::now();
 
@@ -735,7 +735,8 @@ void ShutdownProgram()
 #ifndef MANDEYE_LIBRARY
 int main(int argc, char** argv)
 {
-    std::cout << "program: " << argv[0] << " " << MANDEYE_VERSION << " " << MANDEYE_HARDWARE_HEADER << std::endl;
+    Logger::Instance().SetLogFile("logs/mandeye.log");
+    LOG_INFO(std::string("program: ") + argv[0] + " " + MANDEYE_VERSION + " " + MANDEYE_HARDWARE_HEADER);
 
     InitProgram();
 
@@ -748,26 +749,26 @@ int main(int argc, char** argv)
         {
             mandeye::isRunning.store(false);
         }
-        std::cout << "Press q -> quit, s -> start scan , e -> end scan" << std::endl;
+        LOG_INFO("Press q -> quit, s -> start scan , e -> end scan");
 
         if(ch == 's')
         {
             if(mandeye::StartScan())
             {
-                std::cout << "start scan success!" << std::endl;
+                LOG_INFO("start scan success!");
             }
         }
         else if(ch == 'e')
         {
             if(mandeye::StopScan())
             {
-                std::cout << "stop scan success!" << std::endl;
+                LOG_INFO("stop scan success!");
             }
         }
     }
 
     ShutdownProgram();
-    std::cout << "Done" << std::endl;
+    LOG_INFO("Done");
     return 0;
 }
 #endif // MANDEYE_LIBRARY

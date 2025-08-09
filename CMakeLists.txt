@@ -55,13 +55,13 @@ configure_file(
 include_directories(${CMAKE_BINARY_DIR})
 #executable
 add_executable(control_program code/main.cpp code/gnss.cpp code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp
-        code/utils/TimeStampReceiver.cpp code/publisher.cpp)
+        code/utils/TimeStampReceiver.cpp code/publisher.cpp code/utils/logger.cpp)
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -latomic")
 
 target_link_libraries(control_program pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
 
 add_library(mandeye_core SHARED code/main.cpp code/gnss.cpp code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp
-        code/utils/TimeStampReceiver.cpp code/publisher.cpp)
+        code/utils/TimeStampReceiver.cpp code/publisher.cpp code/utils/logger.cpp)
 target_link_libraries(mandeye_core pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
 target_compile_definitions(mandeye_core PRIVATE MANDEYE_LIBRARY)
 # Define install directories
