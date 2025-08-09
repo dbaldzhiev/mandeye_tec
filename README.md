@@ -17,3 +17,16 @@ For each setting the application uses the following precedence:
 
 Edit the configuration file or set environment variables as needed before
 starting the application.
+
+## Docker
+
+The project can be built and run in a container:
+
+```bash
+scripts/build_docker.sh
+scripts/run_docker.sh
+```
+
+The run script exposes the web interface on port `5000` and mounts the
+`config` directory into the container so you can edit `config/mandeye_config.json`
+on the host and have those settings applied inside the container.
