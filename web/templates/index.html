@@ -41,13 +41,28 @@
         <p>Last Saved File: {{ status.lastLazStatus && status.lastLazStatus.filename || 'N/A' }}</p>
         <p class="text-danger" v-if="status.state && status.state.includes('ERROR')">Error: {{ status.state }}</p>
       </div>
+
+      <div class="mt-4">
+        <h2>Logs</h2>
+        <div class="mb-2">
+          <select v-model="logFilter" class="form-select w-auto">
+            <option value="">All</option>
+            <option value="INFO">Info</option>
+            <option value="WARN">Warn</option>
+            <option value="ERROR">Error</option>
+          </select>
+        </div>
+        <pre class="bg-light p-2" style="max-height: 200px; overflow-y: scroll;">
+<div v-for="(l, idx) in filteredLogs" :key="idx">{{ l.raw }}</div>
+        </pre>
+      </div>
     </div>
 
     <script>
       const { createApp } = Vue;
       createApp({
         data() {
-          return { status: {}, stream: {}, error: '', message: '' };
+          return { status: {}, stream: {}, error: '', message: '', logs: [], logFilter: '' };
         },
         methods: {
           format(obj) {
@@ -71,6 +86,12 @@
               });
           }
         },
+        computed: {
+          filteredLogs() {
+            if (!this.logFilter) return this.logs;
+            return this.logs.filter(l => l.level === this.logFilter);
+          }
+        },
         mounted() {
           this.updateStatus();
           setInterval(this.updateStatus, 5000);
@@ -78,6 +99,16 @@
           const source = new EventSource('/api/stream');
           source.onmessage = e => {
             try { this.stream = JSON.parse(e.data); } catch (err) {}
+          };
+
+          const logSource = new EventSource('/api/logs');
+          logSource.onmessage = e => {
+            const raw = e.data;
+            const m = raw.match(/^\[(\w+)\]\s*(.*)$/);
+            const level = m ? m[1] : 'INFO';
+            const message = m ? m[2] : raw;
+            this.logs.push({level, message, raw});
+            if (this.logs.length > 200) this.logs.shift();
           };
         }
       }).mount('#app');

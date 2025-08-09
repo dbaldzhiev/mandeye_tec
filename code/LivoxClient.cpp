@@ -2,8 +2,9 @@
 #include "fstream"
 #include "livox_lidar_api.h"
 #include "livox_lidar_def.h"
-#include <iostream>
+#include "utils/logger.h"
 #include <thread>
+#include <string>
 
 namespace mandeye
 {
@@ -175,7 +176,7 @@ std::pair<LivoxPointsBufferPtr, LivoxIMUBufferPtr> LivoxClient::retrieveData()
 void LivoxClient::testThread()
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-	std::cout << "Livox periodical watch thread" << std::endl;
+        LOG_INFO("Livox periodical watch thread");
 	while(!isDone)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -192,7 +193,7 @@ void LivoxClient::testThread()
 			{
 				if (it->second != kLivoxLidarNormal)
 				{
-					std::cout << "wakey wakey lidar with handle" << it->first << std::endl;
+                                        LOG_INFO("wakey wakey lidar with handle " + std::to_string(it->first));
 					SetLivoxLidarWorkMode(handle, kLivoxLidarNormal, &LivoxClient::WorkModeCallback, this);
 				}
 			}
@@ -494,7 +495,7 @@ void LivoxClient::LidarInfoChangeCallback(const uint32_t handle,
 		const std::string sn(info->sn);
 		this_ptr->m_handleToSerialNumber[handle] = sn;
 		this_ptr->m_serialNumbers.insert(sn);
-		std::cout << " **** Adding lidar " <<sn << " handle " << handle << std::endl;
+                LOG_INFO(" **** Adding lidar " + sn + " handle " + std::to_string(handle));
 	}
 }
 double LivoxClient::getTimestamp()

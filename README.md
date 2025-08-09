@@ -17,3 +17,10 @@ For each setting the application uses the following precedence:
 
 Edit the configuration file or set environment variables as needed before
 starting the application.
+
+## Logging
+
+The core application emits severity-tagged logs to `logs/mandeye.log`. The file
+is rotated when it exceeds 5&nbsp;MB, keeping a single backup `mandeye.log.1`.
+Recent log lines can be streamed via the `/api/logs` endpoint and are displayed
+in the web interface with level filters for info, warnings, and errors.
