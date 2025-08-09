@@ -303,8 +303,8 @@ void saveGnssData(std::deque<std::string>& buffer, const std::string& directory,
 	using namespace std::chrono_literals;
 	char lidarName[256];
 	snprintf(lidarName, 256, "gnss%04d.gnss", chunk);
-	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-    LOG_INFO("Savig gnss buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath);
+        std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
+        LOG_INFO("Savig gnss buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath.string());
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	std::stringstream ss;
 
@@ -324,8 +324,8 @@ void saveGnssRawData(std::deque<std::string>& buffer, const std::string& directo
 	using namespace std::chrono_literals;
 	char lidarName[256];
 	snprintf(lidarName, 256, "gnss%04d.nmea", chunk);
-	std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
-    LOG_INFO("Savig gnss raw buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath);
+        std::filesystem::path lidarFilePath = std::filesystem::path(directory) / std::filesystem::path(lidarName);
+        LOG_INFO("Savig gnss raw buffer of size " + std::to_string(buffer.size()) + " to " + lidarFilePath.string());
 	std::ofstream lidarStream(lidarFilePath.c_str());
 	std::stringstream ss;
 
@@ -669,7 +669,7 @@ MandeyeConfig LoadConfig()
         {
                 try
                 {
-                        json j;
+                        nlohmann::json j;
                         f >> j;
                         if(j.contains("livox_interface_ip") && j["livox_interface_ip"].is_string())
                         {
@@ -708,7 +708,7 @@ void InitProgram()
             mandeye::isLidarError.store(true);
         }
         const std::string portName = "";
-        const auto baud = 0;
+        const LibSerial::BaudRate baud = LibSerial::BaudRate::BAUD_9600;
         if(!portName.empty()) {
             mandeye::gnssClientPtr = std::make_shared<mandeye::GNSSClient>();
             mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
@@ -735,7 +735,7 @@ void ShutdownProgram()
 #ifndef MANDEYE_LIBRARY
 int main(int argc, char** argv)
 {
-    Logger::Instance().SetLogFile("logs/mandeye.log");
+    mandeye::Logger::Instance().SetLogFile("logs/mandeye.log");
     LOG_INFO(std::string("program: ") + argv[0] + " " + MANDEYE_VERSION + " " + MANDEYE_HARDWARE_HEADER);
 
     InitProgram();
