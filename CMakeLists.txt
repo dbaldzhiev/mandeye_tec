@@ -46,13 +46,6 @@ find_library(LIBSERIAL_LIBRARY
 include_directories(3rd/minmea ${LIBSERIAL_INCLUDE_DIR})
 add_library(minea STATIC 3rd/minmea/minmea.c)
 
-# GPIOD
-
-find_library(GPIOD_LIBRARY NAMES libgpiod.so)
-if(NOT GPIOD_LIBRARY)
-    message(FATAL_ERROR "gpiod library not found. Install apt install libgpiod-dev")
-endif()
-
 # get git info
 execute_process(
         COMMAND git rev-parse --short HEAD
@@ -70,28 +63,13 @@ configure_file(
 # Include the generated file in the project
 include_directories(${CMAKE_BINARY_DIR})
 #executable
-add_executable(control_program code/main.cpp code/gnss.cpp code/web_page.h code/LivoxClient.cpp code/gpios.cpp code/FileSystemClient.cpp code/save_laz.cpp ${PISTACHE_SRC}
+add_executable(control_program code/main.cpp code/gnss.cpp code/web_page.h code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp ${PISTACHE_SRC}
         code/utils/TimeStampReceiver.cpp code/publisher.cpp)
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -latomic")
 
-target_link_libraries(control_program pthread livox_lidar_sdk_static pistache atomic laszip ${LIBSERIAL_LIBRARY} minea gpiod zmq)
-
-
-add_executable(led_demo code/led_demo.cpp code/gpios.cpp)
-set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-target_link_libraries(led_demo gpiod pthread)
-
-add_executable(fake_pps code/fake_pps.cpp code/gpios.cpp)
-set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-target_link_libraries(fake_pps ${LIBSERIAL_LIBRARY} gpiod pthread)
-
-
-add_executable(button_demo code/button_demo.cpp code/gpios.cpp)
-set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-target_link_libraries(button_demo gpiod pthread)
-
+target_link_libraries(control_program pthread livox_lidar_sdk_static pistache atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
 # Define install directories
-install(TARGETS control_program led_demo fake_pps button_demo
+install(TARGETS control_program
         RUNTIME DESTINATION /opt/mandeye/)
 
 
@@ -100,5 +78,5 @@ set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "mandeye-multisensor")
 set(CPACK_PACKAGE_VERSION "${MANDEYE_VERSION}-${GIT_HASH}-${MANDEYE_HARDWARE_HEADER}-${SYSTEM_ARCH}")
 set(CPACK_PACKAGE_CONTACT "Michał Pełka <michalpelka@gmail.com>")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "rapidjson-dev,libserial-dev, libgpiod-dev, libzmq3-dev")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "rapidjson-dev,libserial-dev, libzmq3-dev")
 include(CPack)
