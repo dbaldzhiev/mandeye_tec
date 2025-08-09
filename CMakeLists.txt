@@ -15,10 +15,6 @@ message("LASzip library")
 add_subdirectory(3rd/LASzip)
 include_directories(3rd/LASzip/include)
 
-message("INCBIN")
-# INCBIN
-include_directories(3rd/incbin)
-
 message("JSON")
 #JSON
 include_directories(3rd/json)
@@ -80,3 +76,4 @@ set(CPACK_PACKAGE_VERSION "${MANDEYE_VERSION}-${GIT_HASH}-${MANDEYE_HARDWARE_HEA
 set(CPACK_PACKAGE_CONTACT "Michał Pełka <michalpelka@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "rapidjson-dev,libserial-dev, libzmq3-dev")
 include(CPack)
+
