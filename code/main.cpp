@@ -629,130 +629,114 @@ bool getEnvBool(const std::string& env, bool def)
 }
 } // namespace utils
 
-#ifdef PISTACHE_SERVER
-#	include "web_page.h"
-#	include <pistache/endpoint.h>
-using namespace Pistache;
 
-struct PistacheServerHandler : public Http::Handler
+std::thread thLivox;
+std::thread thStateMachine;
+
+void InitProgram()
 {
-	HTTP_PROTOTYPE(PistacheServerHandler)
-	void onRequest(const Http::Request& request, Http::ResponseWriter writer) override
-	{
-		if(request.resource() == "/status" || request.resource() == "/json/status")
-		{
-			std::string p = mandeye::produceReport(false);
-			writer.send(Http::Code::Ok, p);
-			return;
-		}
-		if(request.resource() == "/status_full" || request.resource() == "/json/status_full")
-		{
-			std::string p = mandeye::produceReport();
-			writer.send(Http::Code::Ok, p);
-			return;
-		}
-		else if(request.resource() == "/jquery.js")
-		{
-			writer.send(Http::Code::Ok, gJQUERYData);
-			return;
-		}
-		else if(request.resource() == "/trig/start_bag")
-		{
-			mandeye::StartScan();
-			writer.send(Http::Code::Ok, "");
-			return;
-		}
-		else if(request.resource() == "/trig/stop_bag")
-		{
-			mandeye::StopScan();
-			writer.send(Http::Code::Ok, "");
-			return;
-		}
-		else if(request.resource() == "/trig/stopscan")
-		{
-			mandeye::TriggerStopScan();
-			writer.send(Http::Code::Ok, "");
-			return;
-		}
-		writer.send(Http::Code::Ok, "");
-	}
-};
-#endif
+    mandeye::fileSystemClientPtr = std::make_shared<mandeye::FileSystemClient>(utils::getEnvString("MANDEYE_REPO", MANDEYE_REPO));
+    thLivox = std::thread([&]() {
+        {
+            std::lock_guard<std::mutex> l1(mandeye::livoxClientPtrLock);
+            mandeye::livoxCLientPtr = std::make_shared<mandeye::LivoxClient>();
+        }
+        if(!mandeye::livoxCLientPtr->startListener(utils::getEnvString("MANDEYE_LIVOX_LISTEN_IP", MANDEYE_LIVOX_LISTEN_IP))) {
+            mandeye::isLidarError.store(true);
+        }
+        const std::string portName = "";
+        const auto baud = 0;
+        if(!portName.empty()) {
+            mandeye::gnssClientPtr = std::make_shared<mandeye::GNSSClient>();
+            mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
+            mandeye::gnssClientPtr->startListener(portName, baud);
+        }
+        mandeye::publisherPtr = std::make_shared<mandeye::Publisher>();
+        mandeye::publisherPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
+    });
 
+    thStateMachine = std::thread([&]() { mandeye::stateWatcher(); });
+}
+
+void ShutdownProgram()
+{
+    mandeye::isRunning.store(false);
+    if(thStateMachine.joinable()) {
+        thStateMachine.join();
+    }
+    if(thLivox.joinable()) {
+        thLivox.join();
+    }
+}
+
+#ifndef MANDEYE_LIBRARY
 int main(int argc, char** argv)
 {
-	std::cout << "program: " << argv[0] << " " << MANDEYE_VERSION << " " << MANDEYE_HARDWARE_HEADER << std::endl;
-	Address addr(Ipv4::any(), SERVER_PORT);
+    std::cout << "program: " << argv[0] << " " << MANDEYE_VERSION << " " << MANDEYE_HARDWARE_HEADER << std::endl;
 
-	auto server = std::make_shared<Http::Endpoint>(addr);
-	std::thread http_thread1([&]() {
-		auto opts = Http::Endpoint::options().threads(2);
-		server->init(opts);
-		server->setHandler(Http::make_handler<PistacheServerHandler>());
-		server->serve();
-	});
+    InitProgram();
 
-	mandeye::fileSystemClientPtr = std::make_shared<mandeye::FileSystemClient>(utils::getEnvString("MANDEYE_REPO", MANDEYE_REPO));
-	std::thread thLivox([&]() {
-		{
-			std::lock_guard<std::mutex> l1(mandeye::livoxClientPtrLock);
-			mandeye::livoxCLientPtr = std::make_shared<mandeye::LivoxClient>();
-		}
-		if(!mandeye::livoxCLientPtr->startListener(utils::getEnvString("MANDEYE_LIVOX_LISTEN_IP", MANDEYE_LIVOX_LISTEN_IP)))
-		{
-			mandeye::isLidarError.store(true);
-		}
-
-		// intialize in this thread to prevent initialization fiasco
-                const std::string portName = "";
-                const auto baud = 0;
-                if(!portName.empty())
-                {
-                        mandeye::gnssClientPtr = std::make_shared<mandeye::GNSSClient>();
-                        mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
-                        mandeye::gnssClientPtr->startListener(portName, baud);
-                }
-		// start zeromq publisher
-		mandeye::publisherPtr = std::make_shared<mandeye::Publisher>();
-		mandeye::publisherPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
-	});
-
-        std::thread thStateMachine([&]() { mandeye::stateWatcher(); });
-
-        while(mandeye::isRunning)
+    while(mandeye::isRunning)
+    {
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(1000ms);
+        char ch = std::getchar();
+        if(ch == 'q')
         {
-		using namespace std::chrono_literals;
-		std::this_thread::sleep_for(1000ms);
-		char ch = std::getchar();
-		if(ch == 'q')
-		{
-			mandeye::isRunning.store(false);
-		}
-		std::cout << "Press q -> quit, s -> start scan , e -> end scan" << std::endl;
+            mandeye::isRunning.store(false);
+        }
+        std::cout << "Press q -> quit, s -> start scan , e -> end scan" << std::endl;
 
-		if(ch == 's')
-		{
-			if(mandeye::StartScan())
-			{
-				std::cout << "start scan success!" << std::endl;
-			}
-		}
-		else if(ch == 'e')
-		{
-			if(mandeye::StopScan())
-			{
-				std::cout << "stop scan success!" << std::endl;
-			}
-		}
-	}
+        if(ch == 's')
+        {
+            if(mandeye::StartScan())
+            {
+                std::cout << "start scan success!" << std::endl;
+            }
+        }
+        else if(ch == 'e')
+        {
+            if(mandeye::StopScan())
+            {
+                std::cout << "stop scan success!" << std::endl;
+            }
+        }
+    }
 
-	server->shutdown();
-	http_thread1.join();
-	std::cout << "joining thStateMachine" << std::endl;
-	thStateMachine.join();
+    ShutdownProgram();
+    std::cout << "Done" << std::endl;
+    return 0;
+}
+#endif // MANDEYE_LIBRARY
 
-        std::cout << "joining thLivox" << std::endl;
-        thLivox.join();
-	std::cout << "Done" << std::endl;
-	return 0;
+extern "C" bool StartScan()
+{
+    return mandeye::StartScan();
+}
+
+extern "C" bool StopScan()
+{
+    return mandeye::StopScan();
+}
+
+extern "C" bool TriggerStopScan()
+{
+    return mandeye::TriggerStopScan();
+}
+
+extern "C" const char* produceReport(bool reportUSB)
+{
+    static std::string p;
+    p = mandeye::produceReport(reportUSB);
+    return p.c_str();
+}
+
+extern "C" void Init()
+{
+    InitProgram();
+}
+
+extern "C" void Shutdown()
+{
+    ShutdownProgram();
 }

@@ -10,11 +10,6 @@ set (MANDEYE_VERSION "0.6-dev")
 message(STATUS "Mandeye version is : ${MANDEYE_VERSION}")
 
 set(SYSTEM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
-message("pistache")
-#pistache
-add_subdirectory(3rd/pistache)
-
-
 message("LASzip library")
 # LASzip library
 add_subdirectory(3rd/LASzip)
@@ -63,11 +58,16 @@ configure_file(
 # Include the generated file in the project
 include_directories(${CMAKE_BINARY_DIR})
 #executable
-add_executable(control_program code/main.cpp code/gnss.cpp code/web_page.h code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp ${PISTACHE_SRC}
+add_executable(control_program code/main.cpp code/gnss.cpp code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp
         code/utils/TimeStampReceiver.cpp code/publisher.cpp)
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -latomic")
 
-target_link_libraries(control_program pthread livox_lidar_sdk_static pistache atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
+target_link_libraries(control_program pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
+
+add_library(mandeye_core SHARED code/main.cpp code/gnss.cpp code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp
+        code/utils/TimeStampReceiver.cpp code/publisher.cpp)
+target_link_libraries(mandeye_core pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
+target_compile_definitions(mandeye_core PRIVATE MANDEYE_LIBRARY)
 # Define install directories
 install(TARGETS control_program
         RUNTIME DESTINATION /opt/mandeye/)
