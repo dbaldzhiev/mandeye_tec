@@ -122,3 +122,26 @@ curl http://localhost:5000/api/status_full  # detailed
 * **No status updates** – check that the publisher port (`server_port`) is
   open and not blocked by a firewall.
 
+Edit the configuration file or set environment variables as needed before
+starting the application.
+
+## Docker
+
+The project can be built and run in a container:
+
+```bash
+scripts/build_docker.sh
+scripts/run_docker.sh
+```
+
+The run script exposes the web interface on port `5000` and mounts the
+`config` directory into the container so you can edit `config/mandeye_config.json`
+on the host and have those settings applied inside the container.
+
+## Logging
+
+The core application emits severity-tagged logs to `logs/mandeye.log`. The file
+is rotated when it exceeds 5&nbsp;MB, keeping a single backup `mandeye.log.1`.
+Recent log lines can be streamed via the `/api/logs` endpoint and are displayed
+in the web interface with level filters for info, warnings, and errors.
+

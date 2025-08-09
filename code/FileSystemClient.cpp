@@ -1,7 +1,8 @@
 #include "FileSystemClient.h"
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <string>
+#include "utils/logger.h"
 #include <sstream>
 #include <stdbool.h>
 #include <unistd.h>
@@ -141,7 +142,7 @@ bool FileSystemClient::CreateDirectoryForContinousScanning(std::string &writable
 		snprintf(dirName, 256, "continousScanning_%04d", id);
 		std::filesystem::path newDirPath =
 			std::filesystem::path(m_repository) / std::filesystem::path(dirName);
-		std::cout << "Creating directory " << newDirPath.string() << std::endl;
+                LOG_INFO("Creating directory " + newDirPath.string());
 		std::error_code ec;
 		std::filesystem::create_directories(newDirPath, ec);
 		m_error = ec.message();
@@ -171,7 +172,7 @@ bool FileSystemClient::CreateDirectoryForStopScans(std::string &writable_dir, in
 		snprintf(dirName, 256, "stopScans_%04d", id_manifest);
 		std::filesystem::path newDirPath =
 			std::filesystem::path(m_repository) / std::filesystem::path(dirName);
-		std::cout << "Creating directory " << newDirPath.string() << std::endl;
+                LOG_INFO("Creating directory " + newDirPath.string());
 		std::error_code ec;
 		std::filesystem::create_directories(newDirPath, ec);
 		m_error = ec.message();
@@ -231,7 +232,7 @@ double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t
 	std::filesystem::path fileName = std::filesystem::path(m_repository)/ std::filesystem::path(filename);
 	std::ofstream out(fileName.string(), std::ios::binary);
 	if (!out) {
-		std::cerr << "Failed to open file for writing\n";
+                LOG_ERROR("Failed to open file for writing");
 		return 0.0;
 	}
 
@@ -245,7 +246,7 @@ double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t
 	std::chrono::duration<double> elapsed = end - start;
 	double mbps = fileSizeMB / elapsed.count();
 
-	std::cout << "Wrote " << fileSizeMB << " MB in " << elapsed.count() << " seconds (" << mbps << " MB/s)\n";
+        LOG_INFO("Wrote " + std::to_string(fileSizeMB) + " MB in " + std::to_string(elapsed.count()) + " seconds (" + std::to_string(mbps) + " MB/s)");
 	// clear file
 	// Remove the file after benchmarking
 //	std::error_code ec;
