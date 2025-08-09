@@ -1,7 +1,10 @@
 import ctypes
 import os
 import atexit
-from flask import Flask, render_template
+import json
+import threading
+import time
+from flask import Flask, render_template, jsonify
 
 LIB_PATH = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmandeye_core.so')
 lib = ctypes.CDLL(LIB_PATH)
@@ -15,20 +18,38 @@ lib.TriggerStopScan.restype = ctypes.c_bool
 lib.produceReport.argtypes = [ctypes.c_bool]
 lib.produceReport.restype = ctypes.c_char_p
 
+# cache for status information updated in the background
+status_cache = {}
+
+
+def poll_status():
+    """Poll the C++ layer for status information."""
+    global status_cache
+    while True:
+        raw = lib.produceReport(ctypes.c_bool(True)).decode("utf-8")
+        try:
+            status_cache = json.loads(raw)
+        except json.JSONDecodeError:
+            status_cache = {}
+        time.sleep(1)
+
+
+threading.Thread(target=poll_status, daemon=True).start()
+
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    status = lib.produceReport(ctypes.c_bool(False)).decode('utf-8')
-    return render_template('index.html', status=status)
+    return render_template('index.html')
 
 @app.route('/status')
 def status():
-    return lib.produceReport(ctypes.c_bool(False)).decode('utf-8')
+    return jsonify(status_cache)
 
 @app.route('/status_full')
 def status_full():
-    return lib.produceReport(ctypes.c_bool(True)).decode('utf-8')
+    raw = lib.produceReport(ctypes.c_bool(True)).decode("utf-8")
+    return jsonify(json.loads(raw))
 
 @app.route('/start_scan')
 def start_scan():
