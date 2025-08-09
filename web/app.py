@@ -6,6 +6,19 @@ import threading
 import time
 from flask import Flask, render_template, jsonify
 
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'mandeye_config.json')
+
+
+def load_config():
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except OSError:
+        return {}
+
+
+config = load_config()
+
 LIB_PATH = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmandeye_core.so')
 lib = ctypes.CDLL(LIB_PATH)
 
@@ -37,6 +50,7 @@ def poll_status():
 threading.Thread(target=poll_status, daemon=True).start()
 
 app = Flask(__name__)
+app.config.update(config)
 
 @app.route('/')
 def index():
@@ -67,4 +81,7 @@ def stopscan():
     return '', 204
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = config.get('web_port')
+    if port is None:
+        port = int(os.environ.get('WEB_PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

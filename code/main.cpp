@@ -23,7 +23,18 @@ namespace utils
 {
 std::string getEnvString(const std::string& env, const std::string& def);
 bool getEnvBool(const std::string& env, bool def);
+int getEnvInt(const std::string& env, int def);
 } // namespace utils
+
+struct MandeyeConfig
+{
+        std::string livox_interface_ip = MANDEYE_LIVOX_LISTEN_IP;
+        std::string repository_path = MANDEYE_REPO;
+        int server_port = SERVER_PORT;
+};
+
+MandeyeConfig LoadConfig();
+static MandeyeConfig g_config;
 
 namespace mandeye
 {
@@ -625,23 +636,75 @@ bool getEnvBool(const std::string& env, bool def)
 	{
 		return true;
 	}
-	return false;
+        return false;
+}
+
+int getEnvInt(const std::string& env, int def)
+{
+        const char* env_p = std::getenv(env.c_str());
+        if(env_p == nullptr)
+        {
+                return def;
+        }
+        try
+        {
+                return std::stoi(env_p);
+        }
+        catch(...)
+        {
+                return def;
+        }
 }
 } // namespace utils
 
+MandeyeConfig LoadConfig()
+{
+        MandeyeConfig cfg;
+        cfg.livox_interface_ip = utils::getEnvString("MANDEYE_LIVOX_LISTEN_IP", cfg.livox_interface_ip);
+        cfg.repository_path = utils::getEnvString("MANDEYE_REPO", cfg.repository_path);
+        cfg.server_port = utils::getEnvInt("SERVER_PORT", cfg.server_port);
+
+        std::ifstream f("config/mandeye_config.json");
+        if(f)
+        {
+                try
+                {
+                        json j;
+                        f >> j;
+                        if(j.contains("livox_interface_ip") && j["livox_interface_ip"].is_string())
+                        {
+                                cfg.livox_interface_ip = j["livox_interface_ip"].get<std::string>();
+                        }
+                        if(j.contains("repository_path") && j["repository_path"].is_string())
+                        {
+                                cfg.repository_path = j["repository_path"].get<std::string>();
+                        }
+                        if(j.contains("server_port") && j["server_port"].is_number_integer())
+                        {
+                                cfg.server_port = j["server_port"].get<int>();
+                        }
+                }
+                catch(...)
+                {
+                        // ignore parse errors
+                }
+        }
+        return cfg;
+}
 
 std::thread thLivox;
 std::thread thStateMachine;
 
 void InitProgram()
 {
-    mandeye::fileSystemClientPtr = std::make_shared<mandeye::FileSystemClient>(utils::getEnvString("MANDEYE_REPO", MANDEYE_REPO));
+    g_config = LoadConfig();
+    mandeye::fileSystemClientPtr = std::make_shared<mandeye::FileSystemClient>(g_config.repository_path);
     thLivox = std::thread([&]() {
         {
             std::lock_guard<std::mutex> l1(mandeye::livoxClientPtrLock);
             mandeye::livoxCLientPtr = std::make_shared<mandeye::LivoxClient>();
         }
-        if(!mandeye::livoxCLientPtr->startListener(utils::getEnvString("MANDEYE_LIVOX_LISTEN_IP", MANDEYE_LIVOX_LISTEN_IP))) {
+        if(!mandeye::livoxCLientPtr->startListener(g_config.livox_interface_ip)) {
             mandeye::isLidarError.store(true);
         }
         const std::string portName = "";
@@ -651,7 +714,7 @@ void InitProgram()
             mandeye::gnssClientPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
             mandeye::gnssClientPtr->startListener(portName, baud);
         }
-        mandeye::publisherPtr = std::make_shared<mandeye::Publisher>();
+        mandeye::publisherPtr = std::make_shared<mandeye::Publisher>(g_config.server_port);
         mandeye::publisherPtr->SetTimeStampProvider(mandeye::livoxCLientPtr);
     });
 
