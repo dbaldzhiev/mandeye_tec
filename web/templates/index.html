@@ -71,7 +71,11 @@
           updateStatus() {
             fetch('/api/status')
               .then(r => r.json())
-              .then(data => { this.status = data; });
+              .then(data => { this.status = data; })
+              .catch(err => {
+                this.error = `Failed to fetch status: ${err.message}`;
+                setTimeout(() => this.error = '', 3000);
+              });
           },
           sendCommand(url) {
             fetch(url, { method: 'POST' })
@@ -100,6 +104,10 @@
           source.onmessage = e => {
             try { this.stream = JSON.parse(e.data); } catch (err) {}
           };
+          source.onerror = () => {
+            this.error = 'Stream connection lost';
+            setTimeout(() => this.error = '', 3000);
+          };
 
           const logSource = new EventSource('/api/logs');
           logSource.onmessage = e => {
@@ -109,6 +117,10 @@
             const message = m ? m[2] : raw;
             this.logs.push({level, message, raw});
             if (this.logs.length > 200) this.logs.shift();
+          };
+          logSource.onerror = () => {
+            this.error = 'Log stream connection lost';
+            setTimeout(() => this.error = '', 3000);
           };
         }
       }).mount('#app');
