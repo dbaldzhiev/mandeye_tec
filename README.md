@@ -69,7 +69,20 @@ The project relies on the following packages (installed by
    [`config/mandeye_config.json`](config/mandeye_config.json) to match your
    environment (see **Configuration** below).
 
-5. Launch the web interface:
+5. Set up the systemd service:
+
+   ```bash
+   scripts/install.sh
+   sudo systemctl enable --now mandeye.service
+   ```
+
+   Disable the service with:
+
+   ```bash
+   sudo systemctl disable --now mandeye.service
+   ```
+
+6. Launch the web interface manually (useful for development):
 
    ```bash
    scripts/run_web.sh
