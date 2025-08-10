@@ -1,12 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 set(CMAKE_CXX_STANDARD 17)
 
-project (mandeye_multisensor)
+project (mandaye_tec)
 
-set(MANDEYE_HARDWARE_HEADER CACHE STRING "Mandeye hardware setting. Choose one header from 'code/hardware/mandeye-*.h")
-#add_compile_definitions(MANDEYE_HARDWARE_HEADER="${MANDEYE_HARDWARE_HEADER}")
-message(STATUS "Mandeye hardware version is : ${MANDEYE_HARDWARE_HEADER}")
-set (MANDEYE_VERSION "0.6-dev")
+set (MANDEYE_VERSION "0.6-1-dev")
 message(STATUS "Mandeye version is : ${MANDEYE_VERSION}")
 
 set(SYSTEM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
@@ -71,9 +68,8 @@ install(TARGETS control_program
 
 # Packaging
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "mandeye-multisensor")
+set(CPACK_PACKAGE_NAME "mandeye-tec")
 set(CPACK_PACKAGE_VERSION "${MANDEYE_VERSION}-${GIT_HASH}-${MANDEYE_HARDWARE_HEADER}-${SYSTEM_ARCH}")
-set(CPACK_PACKAGE_CONTACT "Michał Pełka <michalpelka@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "rapidjson-dev,libserial-dev, libzmq3-dev")
 include(CPack)
 
