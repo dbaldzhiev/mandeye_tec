@@ -130,12 +130,20 @@ std::string produceReport(bool reportUSB = true)
 
 bool StartScan()
 {
-	if(app_state == States::IDLE || app_state == States::STOPPED)
-	{
-		app_state = States::STARTING_SCAN;
-		return true;
-	}
-	return false;
+        if(app_state == States::IDLE || app_state == States::STOPPED)
+        {
+                bool hasLidar = livoxCLientPtr &&
+                                 !livoxCLientPtr->produceStatus()["LivoxLidarInfo"]["sn"].is_null();
+                if(isLidarError || !hasLidar)
+                {
+                        LOG_ERROR("Unable to start scan: lidar error or no connected lidar");
+                        app_state = States::IDLE;
+                        return false;
+                }
+                app_state = States::STARTING_SCAN;
+                return true;
+        }
+        return false;
 }
 bool StopScan()
 {
@@ -166,23 +174,31 @@ std::chrono::steady_clock::time_point stoppingStage2StartDeadlineChangeLed;
 
 bool TriggerContinousScanning()
 {
-	if(app_state == States::IDLE || app_state == States::STOPPED)
-	{
+        if(app_state == States::IDLE || app_state == States::STOPPED)
+        {
+                bool hasLidar = livoxCLientPtr &&
+                                 !livoxCLientPtr->produceStatus()["LivoxLidarInfo"]["sn"].is_null();
+                if(isLidarError || !hasLidar)
+                {
+                        LOG_ERROR("Unable to trigger scanning: lidar error or no connected lidar");
+                        app_state = States::IDLE;
+                        return false;
+                }
 
-		// intiliaze duration count
-		if(livoxCLientPtr)
-		{
-			livoxCLientPtr->initializeDuration();
-		}
+                // intiliaze duration count
+                if(livoxCLientPtr)
+                {
+                        livoxCLientPtr->initializeDuration();
+                }
 
-		app_state = States::STARTING_SCAN;
-		return true;
-	}
-	else if(app_state == States::SCANNING)
-	{
+                app_state = States::STARTING_SCAN;
+                return true;
+        }
+        else if(app_state == States::SCANNING)
+        {
 #ifdef MANDEYE_COUNTINOUS_SCANNING_STOP_1_CLICK
-		app_state = States::STOPPING;
-		return true;
+                app_state = States::STOPPING;
+                return true;
 #endif //MANDEYE_COUNTINOUS_SCANNING_STOP_1_CLICK
 		app_state = States::STOPPING_STAGE_1;
 		//stoppingStage1Start = std::chrono::steady_clock::now();
