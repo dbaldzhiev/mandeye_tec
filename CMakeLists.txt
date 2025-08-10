@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0)
 set(CMAKE_CXX_STANDARD 17)
-
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) 
 project (mandaye_tec)
 
 set (MANDEYE_VERSION "0.6-1-dev")
@@ -8,6 +8,29 @@ message(STATUS "Mandeye version is : ${MANDEYE_VERSION}")
 
 set(SYSTEM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
 message("LASzip library")
+# Livox SDK2 (precompiled, shared only)
+set(LIVOX_SDK_DIR "" CACHE PATH "Path to Livox SDK2 installation")
+find_path(LIVOX_SDK_INCLUDE_DIR livox_lidar_def.h
+  HINTS ${LIVOX_SDK_DIR}/include
+  PATHS /usr/local/include /usr/include
+  REQUIRED)
+include_directories(${LIVOX_SDK_INCLUDE_DIR})
+
+# find shared .so (prefer typical names)
+find_library(LIVOX_SDK_LIBRARY
+  NAMES livox_lidar_sdk livox_lidar_sdk_shared
+  HINTS ${LIVOX_SDK_DIR}/lib
+  PATHS /usr/local/lib /usr/lib
+  REQUIRED)
+
+# hard-fail if CMake somehow picked a static archive
+if (LIVOX_SDK_LIBRARY MATCHES "\\.a$")
+  message(FATAL_ERROR
+    "Found static Livox SDK (${LIVOX_SDK_LIBRARY}). "
+    "You asked for shared-only. Install the shared lib (.so) and/or set LIVOX_SDK_DIR.")
+endif()
+
+message(STATUS "Using Livox SDK: ${LIVOX_SDK_LIBRARY}")
 # LASzip library
 add_subdirectory(3rd/LASzip)
 include_directories(3rd/LASzip/include)
