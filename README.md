@@ -22,7 +22,7 @@ API for remote control.
 ### Software
 
 The project relies on the following packages (installed by
-`scripts/install_dependencies.sh`):
+`scripts/install.sh`):
 
 * `build-essential`, `cmake`
 * `libserial-dev`, `libzmq3-dev`
@@ -38,11 +38,13 @@ The project relies on the following packages (installed by
 
 ## Installation
 
-1. Install system and Python dependencies:
+1. Install system and Python dependencies and configure USB automounting:
 
    ```bash
-   scripts/install_dependencies.sh
+   scripts/install.sh
    ```
+
+   Reboot after this step to enable USB automounting.
 
 2. Compile and install the Livox SDK2 (required before building):
 
@@ -139,8 +141,8 @@ curl http://localhost:5000/api/status_full  # detailed
 
 * **Build errors** – ensure all dependencies are installed and required
   third‑party sources (e.g. LASzip) are present. Running
-  `scripts/install_dependencies.sh` and fetching git submodules usually
-  resolves missing headers.
+  `scripts/install.sh` and fetching git submodules usually resolves
+  missing headers.
 * **`libmandeye_core.so not found`** – run `scripts/build.sh` before
   executing `scripts/run_web.sh`.
 * **Device connectivity issues** – verify network settings for the lidar
