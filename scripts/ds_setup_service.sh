@@ -5,13 +5,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."
 SERVICE_FILE="/etc/systemd/system/mandeye.service"
 
+if [[ -f "$SERVICE_FILE" ]]; then
+  echo "Service already configured at $SERVICE_FILE"
+  exit 0
+fi
+
 if command -v jq >/dev/null 2>&1; then
   WEB_PORT="$(jq -r '.web_port // 5000' "${ROOT_DIR}/config/mandeye_config.json" 2>/dev/null)"
 else
   WEB_PORT="5000"
 fi
 
-PYTHON_BIN="$(command -v python3 || command -v python)"
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  PYTHON_BIN="$(command -v python3 || command -v python)"
+fi
 
 sudo tee "$SERVICE_FILE" > /dev/null <<SERVICE
 [Unit]
@@ -31,5 +39,6 @@ WantedBy=multi-user.target
 SERVICE
 
 sudo systemctl daemon-reload
+sudo systemctl enable mandeye.service
 
 echo "Service installed to $SERVICE_FILE"

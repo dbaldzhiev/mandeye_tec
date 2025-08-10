@@ -8,7 +8,7 @@ BUILD_DIR="${ROOT_DIR}/build"
 CONFIG_DIR="${ROOT_DIR}/config"
 
 if [ ! -d "$BUILD_DIR" ]; then
-  echo "Build directory not found. Run scripts/build.sh first." >&2
+  echo "Build directory not found. Run scripts/ds_build_app.sh first." >&2
   exit 1
 fi
 
