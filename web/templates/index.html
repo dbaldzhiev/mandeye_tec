@@ -21,16 +21,18 @@
 
       <div class="row">
         <div class="col-md-4">
-          <h2>Lidar</h2>
-          <pre>{{ format(status.livox) }}</pre>
+          <h2>Lidar <span v-if="!hasKeys(status.livox)" class="badge bg-danger">Disconnected</span></h2>
+          <pre v-if="hasKeys(status.livox)">{{ format(status.livox) }}</pre>
+          <div v-else class="alert alert-danger">Lidar not detected</div>
         </div>
         <div class="col-md-4">
           <h2>GNSS</h2>
           <pre>{{ format(status.gnss) }}</pre>
         </div>
         <div class="col-md-4">
-          <h2>Filesystem</h2>
-          <pre>{{ format(status.fs) }}</pre>
+          <h2>Filesystem <span v-if="!hasKeys(status.fs)" class="badge bg-danger">Disconnected</span></h2>
+          <pre v-if="hasKeys(status.fs)">{{ format(status.fs) }}</pre>
+          <div v-else class="alert alert-warning">USB storage missing</div>
         </div>
       </div>
 
@@ -67,6 +69,9 @@
         methods: {
           format(obj) {
             return JSON.stringify(obj || {}, null, 2);
+          },
+          hasKeys(obj) {
+            return obj && Object.keys(obj).length > 0;
           },
           updateStatus() {
             fetch('/api/status')
