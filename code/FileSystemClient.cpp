@@ -1,10 +1,10 @@
 #include "FileSystemClient.h"
+#include "utils/logger.h"
 #include <filesystem>
 #include <fstream>
-#include <string>
-#include "utils/logger.h"
 #include <sstream>
 #include <stdbool.h>
+#include <string>
 #include <unistd.h>
 namespace mandeye
 {
@@ -81,14 +81,12 @@ std::string FileSystemClient::ConvertToText(float mb)
 
 int32_t FileSystemClient::GetIdFromManifest()
 {
-	std::filesystem::path versionfn =
-		std::filesystem::path(m_repository) / std::filesystem::path(versionFilename);
+	std::filesystem::path versionfn = std::filesystem::path(m_repository) / std::filesystem::path(versionFilename);
 	std::ofstream versionOFstream;
 	versionOFstream.open(versionfn.c_str());
 	versionOFstream << "Version 0.6-dev" << std::endl;
-	
-	std::filesystem::path manifest =
-		std::filesystem::path(m_repository) / std::filesystem::path(manifestFilename);
+
+	std::filesystem::path manifest = std::filesystem::path(m_repository) / std::filesystem::path(manifestFilename);
 	std::unique_lock<std::mutex> lck(m_mutex);
 
 	std::ifstream manifestFstream;
@@ -108,15 +106,13 @@ int32_t FileSystemClient::GetIdFromManifest()
 		return (id++);
 	}
 	//
-	
 
 	return -1;
 }
 
 int32_t FileSystemClient::GetNextIdFromManifest()
 {
-	std::filesystem::path manifest =
-		std::filesystem::path(m_repository) / std::filesystem::path(manifestFilename);
+	std::filesystem::path manifest = std::filesystem::path(m_repository) / std::filesystem::path(manifestFilename);
 	int32_t id = GetIdFromManifest();
 	id++;
 	m_nextId = id;
@@ -130,7 +126,7 @@ int32_t FileSystemClient::GetNextIdFromManifest()
 	return id;
 }
 
-bool FileSystemClient::CreateDirectoryForContinousScanning(std::string &writable_dir, const int &id_manifest)
+bool FileSystemClient::CreateDirectoryForContinousScanning(std::string& writable_dir, const int& id_manifest)
 {
 	std::string ret;
 
@@ -140,29 +136,36 @@ bool FileSystemClient::CreateDirectoryForContinousScanning(std::string &writable
 		auto id = id_manifest;
 		char dirName[256];
 		snprintf(dirName, 256, "continousScanning_%04d", id);
-		std::filesystem::path newDirPath =
-			std::filesystem::path(m_repository) / std::filesystem::path(dirName);
-                LOG_INFO("Creating directory " + newDirPath.string());
+		std::filesystem::path newDirPath = std::filesystem::path(m_repository) / std::filesystem::path(dirName);
+		LOG_INFO("Creating directory " + newDirPath.string());
 		std::error_code ec;
 		std::filesystem::create_directories(newDirPath, ec);
 		m_error = ec.message();
 		if(ec.value() == 0)
 		{
-			if(!newDirPath.string().empty()){
+			if(!newDirPath.string().empty())
+			{
 				writable_dir = newDirPath.string();
 				return true;
-			}else{
+			}
+			else
+			{
 				return false;
 			}
-		}else{
+		}
+		else
+		{
 			return false;
 		}
-	}else{
+	}
+	else
+	{
 		return false;
 	}
 }
 
-bool FileSystemClient::CreateDirectoryForStopScans(std::string &writable_dir, int &id_manifest){
+bool FileSystemClient::CreateDirectoryForStopScans(std::string& writable_dir, int& id_manifest)
+{
 	std::string ret;
 
 	if(GetIsWritable())
@@ -170,24 +173,30 @@ bool FileSystemClient::CreateDirectoryForStopScans(std::string &writable_dir, in
 		id_manifest = GetNextIdFromManifest() - 1;
 		char dirName[256];
 		snprintf(dirName, 256, "stopScans_%04d", id_manifest);
-		std::filesystem::path newDirPath =
-			std::filesystem::path(m_repository) / std::filesystem::path(dirName);
-                LOG_INFO("Creating directory " + newDirPath.string());
+		std::filesystem::path newDirPath = std::filesystem::path(m_repository) / std::filesystem::path(dirName);
+		LOG_INFO("Creating directory " + newDirPath.string());
 		std::error_code ec;
 		std::filesystem::create_directories(newDirPath, ec);
 		m_error = ec.message();
 		if(ec.value() == 0)
 		{
-			if(!newDirPath.string().empty()){
+			if(!newDirPath.string().empty())
+			{
 				writable_dir = newDirPath.string();
 				return true;
-			}else{
+			}
+			else
+			{
 				return false;
 			}
-		}else{
+		}
+		else
+		{
 			return false;
 		}
-	}else{
+	}
+	else
+	{
 		return false;
 	}
 }
@@ -202,7 +211,7 @@ std::vector<std::string> FileSystemClient::GetDirectories()
 		if(entry.is_regular_file())
 		{
 			auto size = std::filesystem::file_size(entry);
-			float fsize = static_cast<float>(size) / (1024 * 1204);
+			float fsize = static_cast<float>(size) / (1024 * 1024);
 			fn.push_back(entry.path().string() + " " + std::to_string(fsize) + " Mb");
 		}
 		else
@@ -226,18 +235,21 @@ bool FileSystemClient::GetIsWritable()
 	}
 }
 
-double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t fileSizeMB) {
+double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t fileSizeMB)
+{
 	const size_t bufferSize = 1024 * 1024; // 1 MB buffer
 	std::vector<char> buffer(bufferSize, 0xAA);
-	std::filesystem::path fileName = std::filesystem::path(m_repository)/ std::filesystem::path(filename);
+	std::filesystem::path fileName = std::filesystem::path(m_repository) / std::filesystem::path(filename);
 	std::ofstream out(fileName.string(), std::ios::binary);
-	if (!out) {
-                LOG_ERROR("Failed to open file for writing");
+	if(!out)
+	{
+		LOG_ERROR("Failed to open file for writing");
 		return 0.0;
 	}
 
 	auto start = std::chrono::high_resolution_clock::now();
-	for (size_t i = 0; i < fileSizeMB; ++i) {
+	for(size_t i = 0; i < fileSizeMB; ++i)
+	{
 		out.write(buffer.data(), bufferSize);
 	}
 	out.close();
@@ -246,14 +258,14 @@ double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t
 	std::chrono::duration<double> elapsed = end - start;
 	double mbps = fileSizeMB / elapsed.count();
 
-        LOG_INFO("Wrote " + std::to_string(fileSizeMB) + " MB in " + std::to_string(elapsed.count()) + " seconds (" + std::to_string(mbps) + " MB/s)");
+	LOG_INFO("Wrote " + std::to_string(fileSizeMB) + " MB in " + std::to_string(elapsed.count()) + " seconds (" + std::to_string(mbps) + " MB/s)");
 	// clear file
 	// Remove the file after benchmarking
-//	std::error_code ec;
-//	std::filesystem::remove(fileName, ec);
-//	if (ec) {
-//		std::cerr << "Failed to remove benchmark file: " << ec.message() << std::endl;
-//	}
+	//	std::error_code ec;
+	//	std::filesystem::remove(fileName, ec);
+	//	if (ec) {
+	//		std::cerr << "Failed to remove benchmark file: " << ec.message() << std::endl;
+	//	}
 	return mbps;
 }
 
