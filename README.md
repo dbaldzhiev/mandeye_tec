@@ -26,7 +26,8 @@ The project relies on the following packages (installed by
 
 * `build-essential`, `cmake`
 * `libserial-dev`, `libzmq3-dev`
-* `python3`, `python3-pip`
+* `python3`, `python3-pip`, `python3-venv`
+* `jq`
 * Python packages listed in `requirements.txt` (`Flask`, `pyzmq`)
 
 ### Hardware
@@ -38,51 +39,34 @@ The project relies on the following packages (installed by
 
 ## Installation
 
-1. Install system and Python dependencies and configure USB automounting:
+1. Run the interactive installer and follow the prompts:
 
    ```bash
    scripts/install.sh
    ```
 
-   Reboot after this step to enable USB automounting.
+   The script pulls git submodules, installs required packages, prepares a
+   Python virtual environment, configures networking and services, compiles
+   third‑party libraries, and builds the application. Reboot after completion
+   to apply any USB automount or network changes.
 
-2. Compile and install the Livox SDK2 (required before building):
-
-   ```bash
-   git submodule update --init --recursive 3rd/Livox-SDK2
-   cd 3rd/Livox-SDK2
-   mkdir build && cd build
-   cmake .. && make -j
-   sudo make install  # installs headers and libs to /usr/local
-   ```
-
-   If you install to a non-standard prefix, set `LIVOX_SDK_DIR` to that
-   location before running the build script.
-
-3. Build the C++ core:
-
-   ```bash
-   scripts/build.sh
-   ```
-
-4. Edit configuration settings in
+2. Edit configuration settings in
    [`config/mandeye_config.json`](config/mandeye_config.json) to match your
    environment (see **Configuration** below).
 
-5. Set up the systemd service:
+3. (Optional) Start the systemd service immediately:
 
    ```bash
-   scripts/install.sh
-   sudo systemctl enable --now mandeye.service
+   sudo systemctl start mandeye.service
    ```
 
-   Disable the service with:
+   Disable or stop the service with:
 
    ```bash
    sudo systemctl disable --now mandeye.service
    ```
 
-6. Launch the web interface manually (useful for development):
+4. Launch the web interface manually (useful for development):
 
    ```bash
    scripts/run_web.sh
@@ -143,7 +127,7 @@ curl http://localhost:5000/api/status_full  # detailed
   third‑party sources (e.g. LASzip) are present. Running
   `scripts/install.sh` and fetching git submodules usually resolves
   missing headers.
-* **`libmandeye_core.so not found`** – run `scripts/build.sh` before
+* **`libmandeye_core.so not found`** – run `scripts/ds_build_app.sh` before
   executing `scripts/run_web.sh`.
 * **Device connectivity issues** – verify network settings for the lidar
   and serial port permissions for the GNSS receiver.

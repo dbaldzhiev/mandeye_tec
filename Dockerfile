@@ -15,7 +15,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Fetch submodules and build the project
-RUN git submodule update --init --recursive && ./scripts/build.sh
+RUN git submodule update --init --recursive \
+    && ./scripts/ds_build_livoxsdk2.sh \
+    && ./scripts/ds_build_app.sh
 
 # Expose the web interface port
 EXPOSE 5000
