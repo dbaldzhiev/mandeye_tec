@@ -7,3 +7,4 @@ BUILD/
 BUILD*/
 .venv/
 logs/
+web/__pycache__/
