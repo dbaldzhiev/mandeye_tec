@@ -13,9 +13,9 @@
 #include <chrono>
 #include <fstream>
 #include "utils/logger.h"
+#include "utils/network.h"
 #include <string>
 
-#define MANDEYE_LIVOX_LISTEN_IP "192.168.1.5"
 #define MANDEYE_REPO "/media/usb/"
 #define SERVER_PORT 8003
 
@@ -28,7 +28,7 @@ int getEnvInt(const std::string& env, int def);
 
 struct MandeyeConfig
 {
-        std::string livox_interface_ip = MANDEYE_LIVOX_LISTEN_IP;
+        std::string livox_interface_ip = utils::getInterfaceIp();
         std::string repository_path = MANDEYE_REPO;
         int server_port = SERVER_PORT;
 };
