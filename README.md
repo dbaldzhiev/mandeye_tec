@@ -44,17 +44,30 @@ The project relies on the following packages (installed by
    scripts/install_dependencies.sh
    ```
 
-2. Build the C++ core:
+2. Compile and install the Livox SDK2 (required before building):
+
+   ```bash
+   git submodule update --init --recursive 3rd/Livox-SDK2
+   cd 3rd/Livox-SDK2
+   mkdir build && cd build
+   cmake .. && make -j
+   sudo make install  # installs headers and libs to /usr/local
+   ```
+
+   If you install to a non-standard prefix, set `LIVOX_SDK_DIR` to that
+   location before running the build script.
+
+3. Build the C++ core:
 
    ```bash
    scripts/build.sh
    ```
 
-3. Edit configuration settings in
+4. Edit configuration settings in
    [`config/mandeye_config.json`](config/mandeye_config.json) to match your
    environment (see **Configuration** below).
 
-4. Launch the web interface:
+5. Launch the web interface:
 
    ```bash
    scripts/run_web.sh

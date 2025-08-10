@@ -16,9 +16,20 @@ message("JSON")
 #JSON
 include_directories(3rd/json)
 
-message("Livox SDK2")
-# Livox SDK2
-add_subdirectory(3rd/Livox-SDK2)
+# Livox SDK2 (precompiled)
+# The Livox SDK must be compiled and installed manually before building
+# this project.  Provide the installation prefix via LIVOX_SDK_DIR or
+# install to a standard system location such as /usr/local.
+set(LIVOX_SDK_DIR "" CACHE PATH "Path to Livox SDK2 installation")
+find_path(LIVOX_SDK_INCLUDE_DIR livox_lidar_def.h
+        HINTS ${LIVOX_SDK_DIR}/include
+        PATHS /usr/local/include /usr/include
+        REQUIRED)
+find_library(LIVOX_SDK_LIBRARY livox_lidar_sdk_static
+        HINTS ${LIVOX_SDK_DIR}/lib
+        PATHS /usr/local/lib /usr/lib
+        REQUIRED)
+include_directories(${LIVOX_SDK_INCLUDE_DIR})
 
 include_directories(code/)
 
@@ -55,11 +66,11 @@ add_executable(control_program code/main.cpp code/gnss.cpp code/LivoxClient.cpp 
         code/utils/TimeStampReceiver.cpp code/publisher.cpp code/utils/logger.cpp)
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -latomic")
 
-target_link_libraries(control_program pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
+target_link_libraries(control_program pthread ${LIVOX_SDK_LIBRARY} atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
 
 add_library(mandeye_core SHARED code/main.cpp code/gnss.cpp code/LivoxClient.cpp code/FileSystemClient.cpp code/save_laz.cpp
         code/utils/TimeStampReceiver.cpp code/publisher.cpp code/utils/logger.cpp)
-target_link_libraries(mandeye_core pthread livox_lidar_sdk_static atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
+target_link_libraries(mandeye_core pthread ${LIVOX_SDK_LIBRARY} atomic laszip ${LIBSERIAL_LIBRARY} minea zmq)
 target_compile_definitions(mandeye_core PRIVATE MANDEYE_LIBRARY)
 # Define install directories
 install(TARGETS control_program
