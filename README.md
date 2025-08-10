@@ -96,8 +96,8 @@ The project relies on the following packages (installed by
 Runtime settings are loaded from `config/mandeye_config.json` at startup. The
 file supports the following fields:
 
-* `livox_interface_ip` – Livox interface IP address (default
-  `"192.168.1.5"`).
+* `livox_interface_ip` – Livox interface IP address (default auto-detected
+  from the available network interfaces).
 * `repository_path` – Path to USB repository (default `"/media/usb/"`).
 * `server_port` – Port used by the C++ publisher (default `8003`).
 * `web_port` – Port for the Flask web UI (default `5000`).
