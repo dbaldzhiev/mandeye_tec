@@ -82,7 +82,9 @@ file supports the following fields:
 
 * `livox_interface_ip` – Livox interface IP address (default auto-detected
   from the available network interfaces).
-* `repository_path` – Path to USB repository (default `"/media/usb/"`).
+* `repository_path` – Path to USB repository used by the C++ backend
+  (default `"/media/usb/"`).  The web interface will automatically search for
+  the first writable `usbN` mount under `/media` or `/run/media` if available.
 * `server_port` – Port used by the C++ publisher (default `8003`).
 * `web_port` – Port for the Flask web UI (default `5000`).
 

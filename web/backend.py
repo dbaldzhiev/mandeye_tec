@@ -75,8 +75,13 @@ def poll_status():
             data["livox"] = {"init_success": False}
 
         # Augment report with additional system information used by the UI.
-        repo = config.get('repository_path', '/media/usb/')
-        storage_present = os.path.ismount(repo) or os.path.exists(repo)
+        # ``tecscanner`` mounts removable media as ``<root>/usbN``.  To remain
+        # compatible with that scheme we probe common mount roots for the first
+        # writable ``usb`` mount and report its status to the frontend.
+        from usb_utils import find_usb_mount  # local import to avoid cycles
+
+        repo = find_usb_mount()
+        storage_present = repo is not None
         free_space = None
         if storage_present:
             try:
@@ -85,6 +90,7 @@ def poll_status():
                 storage_present = False
         data['storage_present'] = storage_present
         data['free_space'] = free_space
+        data['repository_path'] = str(repo) if repo else None
 
         def get_ip(iface):
             try:
