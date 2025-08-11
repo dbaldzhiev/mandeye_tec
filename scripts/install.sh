@@ -13,19 +13,34 @@ steps=(
   "Build main application|ds_build_app.sh"
 )
 
+non_interactive=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes|-y)
+      non_interactive=true
+      shift
+      ;;
+    *)
+      echo "Usage: $0 [--yes]" >&2
+      exit 1
+      ;;
+  esac
+done
+
 for step in "${steps[@]}"; do
   desc=${step%%|*}
   script=${step##*|}
-  read -rp "Run step: $desc? [y/N] " ans
+  if $non_interactive; then
+    ans="y"
+  else
+    read -rp "Run step: $desc? [y/N] " ans
+  fi
   if [[ "$ans" =~ ^[Yy]$ ]]; then
     "${SCRIPT_DIR}/${script}"
   else
     echo "Skipping $desc"
   fi
   echo
-  read -rp "Press Enter to continue..." _
-  echo
-
 done
 
 echo "Installation complete. Please reboot if system components were installed."
