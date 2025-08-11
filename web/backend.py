@@ -4,6 +4,9 @@ import atexit
 import json
 import threading
 import time
+import subprocess
+import shutil
+import re
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'mandeye_config.json')
 
@@ -18,18 +21,28 @@ def load_config():
 
 config = load_config()
 
+# Try to load the C++ recording backend.  In development environments the
+# shared library may not be present; we still want the web UI to start so we
+# handle this gracefully and provide no-op fallbacks.
 LIB_PATH = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmandeye_core.so')
-lib = ctypes.CDLL(LIB_PATH)
+try:
+    lib = ctypes.CDLL(LIB_PATH)
+    lib.Init()
+    atexit.register(lib.Shutdown)
+    lib.StartScan.restype = ctypes.c_bool
+    lib.StopScan.restype = ctypes.c_bool
+    lib.TriggerStopScan.restype = ctypes.c_bool
+    lib.produceReport.argtypes = [ctypes.c_bool]
+    lib.produceReport.restype = ctypes.c_char_p
+    lib.SetChunkOptions.argtypes = [ctypes.c_int, ctypes.c_int]
+except OSError:
+    class _Stub:
+        def __getattr__(self, name):
+            if name == 'produceReport':
+                return lambda *args, **kwargs: b'{}'
+            return lambda *args, **kwargs: False
 
-lib.Init()
-atexit.register(lib.Shutdown)
-
-lib.StartScan.restype = ctypes.c_bool
-lib.StopScan.restype = ctypes.c_bool
-lib.TriggerStopScan.restype = ctypes.c_bool
-lib.produceReport.argtypes = [ctypes.c_bool]
-lib.produceReport.restype = ctypes.c_char_p
-lib.SetChunkOptions.argtypes = [ctypes.c_int, ctypes.c_int]
+    lib = _Stub()
 
 status_cache = {}
 
@@ -60,6 +73,42 @@ def poll_status():
             # an acknowledgement in a while – clear any stale details so the
             # UI can show a disconnected state.
             data["livox"] = {"init_success": False}
+
+        # Augment report with additional system information used by the UI.
+        repo = config.get('repository_path', '/media/usb/')
+        storage_present = os.path.ismount(repo) or os.path.exists(repo)
+        free_space = None
+        if storage_present:
+            try:
+                free_space = shutil.disk_usage(repo).free
+            except OSError:
+                storage_present = False
+        data['storage_present'] = storage_present
+        data['free_space'] = free_space
+
+        def get_ip(iface):
+            try:
+                out = subprocess.check_output(['ip', '-4', 'addr', 'show', iface], text=True)
+                m = re.search(r'inet (\d+\.\d+\.\d+\.\d+)', out)
+                return m.group(1) if m else None
+            except Exception:
+                return None
+
+        eth0_ip = get_ip('eth0')
+        data['eth0_ip'] = eth0_ip
+        lidar_ip = config.get('livox_interface_ip')
+        data['lidar_ip'] = lidar_ip
+
+        def ping(host):
+            try:
+                subprocess.check_output(['ping', '-c', '1', '-W', '1', host], stderr=subprocess.DEVNULL)
+                return True
+            except Exception:
+                return False
+
+        data['lidar_detected'] = bool(lidar_ip and ping(lidar_ip))
+        data['chunk_size_mb'] = config.get('chunk_size_mb')
+        data['chunk_duration_s'] = config.get('chunk_duration_s')
 
         status_cache = data
         time.sleep(1)

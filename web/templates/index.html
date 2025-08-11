@@ -108,9 +108,6 @@
     <div id="sysbar">
       <span id="eth0_ip" class="bad">eth0 ?</span>
       <span id="lidar_ip" class="bad">lidar ?</span>
-      <span id="livox_sdk2" class="bad">LivoxSDK2</span>
-      <span id="save_laz" class="bad">save_laz</span>
-      <span id="laszip" class="bad">LASzip</span>
       <span id="flash" class="bad">storage</span>
       <span id="free_space" class="bad">?</span>
     </div>
@@ -131,6 +128,10 @@
         <p>LiDAR stream: <span id="stream_status">n/a</span>
           <progress id="stream_progress" max="1" value="0"></progress>
         </p>
+      </div>
+      <div id="config_opts" style="margin-bottom:1rem;text-align:center;">
+        <label>Chunk size (MB): <input type="number" id="chunk_size" min="1" value="100" style="width:5rem;"></label>
+        <label>Duration (s): <input type="number" id="chunk_duration" min="1" value="10" style="width:5rem;"></label>
       </div>
       <div id="actions">
         <button id="start_btn" onclick="startRec()">Start</button>
@@ -153,6 +154,13 @@
 
       async function startRec(){
         try {
+          const size = parseInt(document.getElementById('chunk_size').value, 10);
+          const duration = parseInt(document.getElementById('chunk_duration').value, 10);
+          await fetch('/api/config', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({chunk_size_mb:size, chunk_duration_s:duration})
+          });
           const res = await fetch('/api/start_scan',{method:'POST'});
           const data = res.status === 204 ? {status:'started'} : await res.json();
           showMessage(res.ok, data.status || 'started');
@@ -210,15 +218,18 @@
             document.getElementById('current_file').textContent = statusData.current_file || statusData.lastLazStatus?.filename || 'n/a';
             document.getElementById('started').textContent = statusData.started || 'n/a';
             document.getElementById('frames_recorded').textContent = statusData.frames_recorded || 0;
+            if (statusData.chunk_size_mb != null){
+              document.getElementById('chunk_size').value = statusData.chunk_size_mb;
+            }
+            if (statusData.chunk_duration_s != null){
+              document.getElementById('chunk_duration').value = statusData.chunk_duration_s;
+            }
             const startBtn = document.getElementById('start_btn');
             const stopBtn = document.getElementById('stop_btn');
             startBtn.disabled = !!statusData.recording;
             stopBtn.disabled = !statusData.recording;
             setIndicator('eth0_ip', statusData.eth0_ip || 'eth0 ?', !!statusData.eth0_ip);
             setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
-            setIndicator('livox_sdk2', 'LivoxSDK2', statusData.livox_sdk2);
-            setIndicator('save_laz', 'save_laz', statusData.save_laz);
-            setIndicator('laszip', 'LASzip', statusData.laszip);
             setIndicator('flash', 'storage', statusData.storage_present);
             const freeEl = document.getElementById('free_space');
             if (statusData.free_space != null){
