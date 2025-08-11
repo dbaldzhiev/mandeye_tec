@@ -21,10 +21,6 @@
 
       <div class="d-flex flex-wrap gap-2 mb-3 justify-content-center align-items-center">
         <button class="btn btn-primary" @click="sendCommand('/api/start_scan')" :disabled="loading">Start Scan</button>
-        <button class="btn btn-warning" @click="sendCommand('/api/stop_scan')" :disabled="loading">Stop Scan</button>
-        <button class="btn btn-danger" @click="sendCommand('/api/stopscan')" :disabled="loading">
-          Trigger Stop Scan
-        </button>
         <button class="btn btn-secondary" @click="sendCommand('/api/setup_static_ip')" :disabled="loading">
           Setup Static IP
         </button>
@@ -34,7 +30,7 @@
       </div>
 
       <div class="row row-cols-1 row-cols-md-3 g-3">
-        <div class="col" v-for="sys in systems" :key="sys.key">
+        <div class="col" v-for="sys in visibleSystems" :key="sys.key">
           <div class="card h-100">
             <div class="card-header d-flex justify-content-between">
               <span>{{ sys.label }}</span>
@@ -99,7 +95,7 @@
             logFilter: '',
             systems: [
               { key:'livox', label:'Lidar', missingMsg:'Lidar not detected', missingClass:'text-danger'},
-              { key:'gnss', label:'GNSS', missingMsg:'GNSS not detected', missingClass:'text-danger'},
+              { key:'gnss', label:'GNSS', missingMsg:'GNSS not detected', missingClass:'text-danger', hideIfMissing:true},
               { key:'fs', label:'Filesystem', missingMsg:'USB storage missing', missingClass:'text-warning'}
             ]
           };
@@ -115,6 +111,9 @@
             if (st.includes('SCAN')) return 'bg-success';
             if (st) return 'bg-info';
             return 'bg-secondary';
+          },
+          visibleSystems() {
+            return this.systems.filter(sys => !(sys.hideIfMissing && !this.hasKeys(this.status[sys.key])));
           }
         },
         methods: {

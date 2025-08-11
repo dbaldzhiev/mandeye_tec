@@ -15,7 +15,7 @@ API for remote control.
   and publishes status updates over ZeroMQ.
 * **Flask web interface** – found in the `web/` directory. It loads the
   shared library via `ctypes` and offers API endpoints and a simple Vue
-  based front‑end for starting/stopping scans and viewing status.
+  based front‑end for starting scans and viewing status.
 
 ## Dependencies and requirements
 
@@ -75,16 +75,13 @@ and the Livox lidar interface IP is automatically determined from `eth0`.
 
 ## Common operations
 
-### Starting and stopping scans
+### Starting scans
 
-From the web dashboard use the **Start Scan**, **Stop Scan** or
-**Trigger Stop Scan** buttons. The same actions are available via the REST
-API:
+From the web dashboard use the **Start Scan** button. The same action is
+available via the REST API:
 
 ```bash
 curl -X POST http://localhost:5000/api/start_scan   # start
-curl -X POST http://localhost:5000/api/stop_scan    # stop
-curl -X POST http://localhost:5000/api/stopscan     # emergency stop
 ```
 
 ### Monitoring status
