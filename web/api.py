@@ -101,12 +101,15 @@ def logs():
 
 @api_bp.route('/recordings')
 def recordings():
-    repo = config.get('repository_path', '/media/usb/')
+    from usb_utils import find_usb_mount
+
+    repo = find_usb_mount()
     recs = []
-    try:
-        for entry in os.scandir(repo):
-            if entry.is_dir():
-                recs.append({'folder': entry.name})
-    except OSError:
-        pass
+    if repo:
+        try:
+            for entry in os.scandir(repo):
+                if entry.is_dir():
+                    recs.append({'folder': entry.name})
+        except OSError:
+            pass
     return jsonify({'recordings': recs})
