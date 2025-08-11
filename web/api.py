@@ -27,20 +27,6 @@ def start_scan():
     return jsonify({'error': 'unable to start scan'}), 400
 
 
-@api_bp.route('/stop_scan', methods=['POST'])
-def stop_scan():
-    if lib.StopScan():
-        return '', 204
-    return jsonify({'error': 'unable to stop scan'}), 400
-
-
-@api_bp.route('/stopscan', methods=['POST'])
-def stopscan():
-    if lib.TriggerStopScan():
-        return '', 204
-    return jsonify({'error': 'unable to trigger stop scan'}), 400
-
-
 @api_bp.route('/setup_static_ip', methods=['POST'])
 def setup_static_ip():
     script = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'ds_setup_static_ip.sh')
