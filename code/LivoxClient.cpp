@@ -4,6 +4,7 @@
 #include "livox_lidar_def.h"
 #include "utils/logger.h"
 #include <thread>
+#include <chrono>
 #include <string>
 
 namespace mandeye
@@ -211,17 +212,33 @@ bool LivoxClient::startListener(const std::string& interfaceIp)
 	std::ofstream configFile(configFn);
 	configFile << fillInConfig;
 	configFile.close();
-	init_succes = LivoxLidarSdkInit(configFn);
-	if(!init_succes)
-	{
-		return false;
-	}
-	SetLivoxLidarPointCloudCallBack(PointCloudCallback, (void*)this);
-	SetLivoxLidarImuDataCallback(ImuDataCallback, (void*)this);
-	SetLivoxLidarInfoChangeCallback(LidarInfoChangeCallback, (void*)this);
+        init_succes = LivoxLidarSdkInit(configFn);
+        if(!init_succes)
+        {
+                return false;
+        }
+        SetLivoxLidarPointCloudCallBack(PointCloudCallback, (void*)this);
+        SetLivoxLidarImuDataCallback(ImuDataCallback, (void*)this);
+        SetLivoxLidarInfoChangeCallback(LidarInfoChangeCallback, (void*)this);
 
-	m_livoxWatchThread = std::thread(&LivoxClient::testThread, this);
-	return true;
+        auto start = std::chrono::steady_clock::now();
+        while(std::chrono::steady_clock::now() - start < std::chrono::seconds(2))
+        {
+                if(!m_LivoxLidarInfo.empty())
+                {
+                        break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if(m_LivoxLidarInfo.empty())
+        {
+                init_succes = false;
+                LivoxLidarSdkUninit();
+                return false;
+        }
+
+        m_livoxWatchThread = std::thread(&LivoxClient::testThread, this);
+        return true;
 }
 
 union ToUint64

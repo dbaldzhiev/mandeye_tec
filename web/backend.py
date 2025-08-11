@@ -88,11 +88,11 @@ def poll_status():
         repo = find_usb_mount()
         storage_present = repo is not None
         free_space = None
-        if storage_present:
+        if repo:
             try:
                 free_space = shutil.disk_usage(repo).free
             except OSError:
-                storage_present = False
+                free_space = None
         data['storage_present'] = storage_present
         data['free_space'] = free_space
         data['repository_path'] = str(repo) if repo else None
