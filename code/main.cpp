@@ -676,35 +676,7 @@ int getEnvInt(const std::string& env, int def)
 MandeyeConfig LoadConfig()
 {
         MandeyeConfig cfg;
-        cfg.livox_interface_ip = utils::getEnvString("MANDEYE_LIVOX_LISTEN_IP", cfg.livox_interface_ip);
-        cfg.repository_path = utils::getEnvString("MANDEYE_REPO", cfg.repository_path);
         cfg.server_port = utils::getEnvInt("SERVER_PORT", cfg.server_port);
-
-        std::ifstream f("config/mandeye_config.json");
-        if(f)
-        {
-                try
-                {
-                        nlohmann::json j;
-                        f >> j;
-                        if(j.contains("livox_interface_ip") && j["livox_interface_ip"].is_string())
-                        {
-                                cfg.livox_interface_ip = j["livox_interface_ip"].get<std::string>();
-                        }
-                        if(j.contains("repository_path") && j["repository_path"].is_string())
-                        {
-                                cfg.repository_path = j["repository_path"].get<std::string>();
-                        }
-                        if(j.contains("server_port") && j["server_port"].is_number_integer())
-                        {
-                                cfg.server_port = j["server_port"].get<int>();
-                        }
-                }
-                catch(...)
-                {
-                        // ignore parse errors
-                }
-        }
         return cfg;
 }
 

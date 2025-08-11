@@ -17,8 +17,7 @@ if [ ! -d "$VENV_DIR" ]; then
   "$VENV_DIR/bin/pip" install -r "${ROOT_DIR}/requirements.txt"
 fi
 
-WEB_PORT="${WEB_PORT:-5000}"
-export WEB_PORT
+WEB_PORT="5000"
 
 cd "${ROOT_DIR}/web"
 "${VENV_DIR}/bin/flask" --app app run --host=0.0.0.0 --port "$WEB_PORT"

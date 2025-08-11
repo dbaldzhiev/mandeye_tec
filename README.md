@@ -50,11 +50,7 @@ The project relies on the following packages (installed by
    third‑party libraries, and builds the application. Reboot after completion
    to apply any USB automount or network changes.
 
-2. Edit configuration settings in
-   [`config/mandeye_config.json`](config/mandeye_config.json) to match your
-   environment (see **Configuration** below).
-
-3. (Optional) Start the systemd service immediately:
+2. (Optional) Start the systemd service immediately:
 
    ```bash
    sudo systemctl start mandeye.service
@@ -66,36 +62,16 @@ The project relies on the following packages (installed by
    sudo systemctl disable --now mandeye.service
    ```
 
-4. Launch the web interface manually (useful for development):
+3. Launch the web interface manually (useful for development):
 
    ```bash
    scripts/run_web.sh
    ```
 
-   The UI is available on `http://localhost:5000` unless overridden by the
-   `WEB_PORT` environment variable or configuration file.
+   The UI is available on `http://localhost:5000`.
 
-## Configuration
-
-Runtime settings are loaded from `config/mandeye_config.json` at startup. The
-file supports the following fields:
-
-* `livox_interface_ip` – Livox interface IP address (default auto-detected
-  from the available network interfaces).
-* `repository_path` – Path to USB repository (default `"/media/usb/"`).
-* `server_port` – Port used by the C++ publisher (default `8003`).
-* `web_port` – Port for the Flask web UI (default `5000`).
-
-For each setting the application uses the following precedence:
-
-1. Value from the configuration file
-2. Environment variable override (`MANDEYE_LIVOX_LISTEN_IP`,
-   `MANDEYE_REPO`, `SERVER_PORT`, `WEB_PORT`)
-3. Compiled default embedded in the binaries
-
-Modify the configuration file or set environment variables as needed before
-starting the application. After making changes, restart any running
-instances for the new settings to take effect.
+Outputs are stored in `/media/usb`, the web interface listens on port `5000`,
+and the Livox lidar interface IP is automatically determined from `eth0`.
 
 ## Common operations
 
@@ -134,8 +110,6 @@ curl http://localhost:5000/api/status_full  # detailed
 * **No status updates** – check that the publisher port (`server_port`) is
   open and not blocked by a firewall.
 
-Edit the configuration file or set environment variables as needed before
-starting the application.
 
 ## Docker
 
@@ -146,9 +120,7 @@ scripts/build_docker.sh
 scripts/run_docker.sh
 ```
 
-The run script exposes the web interface on port `5000` and mounts the
-`config` directory into the container so you can edit `config/mandeye_config.json`
-on the host and have those settings applied inside the container.
+The run script exposes the web interface on port `5000`.
 
 ## Logging
 

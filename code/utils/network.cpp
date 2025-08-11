@@ -25,15 +25,14 @@ namespace utils
                                 auto* in = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
                                 if(inet_ntop(AF_INET, &in->sin_addr, addr, sizeof(addr)))
                                 {
-                                        std::string candidate(addr);
-                                        if(candidate.rfind("192.168.", 0) == 0)
+                                        if(std::string(ifa->ifa_name) == "eth0")
                                         {
-                                                ip = candidate;
+                                                ip = addr;
                                                 break;
                                         }
                                         if(ip.empty())
                                         {
-                                                ip = candidate;
+                                                ip = addr;
                                         }
                                 }
                         }
