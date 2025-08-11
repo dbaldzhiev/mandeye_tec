@@ -5,6 +5,8 @@
 #include <json.hpp>
 #include <mutex>
 #include <string>
+#include <vector>
+#include <functional>
 
 namespace mandeye
 {
@@ -30,7 +32,9 @@ public:
 	//! Get is writable
 	bool GetIsWritable();
 
-	std::vector<std::string> GetDirectories();
+        std::vector<std::string> GetDirectories(int maxDepth = -1,
+                                               bool includeFileSizes = true,
+                                               std::function<void(const std::string&)> onEntry = nullptr);
 
 	bool CreateDirectoryForContinousScanning(std::string &, const int &);
 
