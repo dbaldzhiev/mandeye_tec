@@ -54,8 +54,36 @@
             <option v-for="opt in chunkOptions" :value="opt">{{ opt }}s</option>
           </select>
         </div>
+        <select v-model.number="chunkDuration" @change="updateConfig" class="form-select w-auto">
+          <option :value="10">10 s</option>
+          <option :value="30">30 s</option>
+          <option :value="60">60 s</option>
+        </select>
+        <select v-model.number="chunkSize" @change="updateConfig" class="form-select w-auto">
+          <option :value="50">50 MB</option>
+          <option :value="100">100 MB</option>
+          <option :value="200">200 MB</option>
+        </select>
+      </div>
+
+      <div class="row row-cols-1 row-cols-md-3 g-3">
+        <div class="col" v-for="sys in systems" :key="sys.key">
+          <div class="card h-100">
+            <div class="card-header d-flex justify-content-between">
+              <span>{{ sys.label }}</span>
+              <span :class="['badge', systemConnected(sys) ? 'bg-success' : 'bg-danger']">
+                {{ systemConnected(sys) ? 'Connected' : 'Disconnected' }}
+              </span>
+            </div>
+            <div class="card-body">
+              <pre v-if="systemConnected(sys)" class="mb-0">{{ format(status[sys.key]) }}</pre>
+              <div v-else :class="sys.missingClass">{{ sys.missingMsg }}</div>
+            </div>
+          </div>
+
         <div v-if="usbInfo" class="ms-auto small">
           Output: {{ usbInfo.repository }} ({{ usbInfo.free_str }} free)
+
         </div>
       </div>
 
@@ -67,6 +95,7 @@
               <p class="mb-1">Mode: {{ stream.mode || status.state || 'N/A' }}</p>
               <p class="mb-1">Elapsed: {{ Math.round((stream.dur||0)/1e9) }} s</p>
               <p class="mb-1">Last Saved File: {{ status.lastLazStatus && status.lastLazStatus.filename || 'N/A' }}</p>
+              <p class="mb-1">Next Chunk: ~{{ (status.nextChunk && status.nextChunk.remaining_time_s || 0).toFixed(1) }} s / ~{{ (status.nextChunk && status.nextChunk.remaining_size_mb || 0).toFixed(1) }} MB</p>
               <p v-if="status.state && status.state.includes('ERROR')" class="text-danger fw-bold">Error: {{ status.state }}</p>
             </div>
           </div>
@@ -104,10 +133,20 @@
             error: '',
             logs: [],
             logFilter: '',
+
+            systems: [
+              { key:'livox', label:'Lidar', missingMsg:'Lidar not detected', missingClass:'text-danger'},
+              { key:'gnss', label:'GNSS', missingMsg:'GNSS not detected', missingClass:'text-danger'},
+              { key:'fs', label:'Filesystem', missingMsg:'USB storage missing', missingClass:'text-warning'}
+            ],
+            chunkDuration: 10,
+            chunkSize: 100
+
             viewerPaused: JSON.parse(localStorage.getItem('viewerPaused') || 'false'),
             chunkDuration: localStorage.getItem('chunkDuration') || '10',
             chunkOptions: ['10', '30', '60'],
             online: navigator.onLine
+
           };
         },
         computed: {
@@ -163,7 +202,7 @@
             if (this.viewerPaused) return;
             fetch('/api/status')
               .then(r => r.json())
-              .then(data => { this.status = data; })
+              .then(data => { this.status = data; this.chunkDuration = data.chunk?.duration_s || this.chunkDuration; this.chunkSize = data.chunk?.size_mb || this.chunkSize; })
               .catch(err => {
                 this.error = `Failed to fetch status: ${err.message}`;
                 setTimeout(() => this.error = '', 3000);
@@ -181,6 +220,13 @@
           },
           clearLogs() {
             this.logs = [];
+          },
+          updateConfig() {
+            fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chunk_size_mb: this.chunkSize, chunk_duration_s: this.chunkDuration })
+            });
           }
         },
         mounted() {

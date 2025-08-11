@@ -1,5 +1,6 @@
 #include "FileSystemClient.h"
 #include "utils/logger.h"
+#include "save_laz.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -282,6 +283,16 @@ double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t
 	//		std::cerr << "Failed to remove benchmark file: " << ec.message() << std::endl;
 	//	}
 	return mbps;
+}
+
+bool FileSystemClient::ShouldRotate(size_t pointCount, double elapsedSec, int chunkSizeMb, int chunkDurationSec,
+                                   float &remainingSizeMb, float &remainingTimeSec)
+{
+        const float currentSizeMb = static_cast<float>(pointCount) *
+                                   (LAS_POINT_RECORD_SIZE_BYTES / (1024.f * 1024.f));
+        remainingSizeMb = static_cast<float>(chunkSizeMb) - currentSizeMb;
+        remainingTimeSec = static_cast<float>(chunkDurationSec) - static_cast<float>(elapsedSec);
+        return remainingSizeMb <= 0.f || remainingTimeSec <= 0.f;
 }
 
 } // namespace mandeye

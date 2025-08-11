@@ -34,9 +34,12 @@ public:
 
 	bool CreateDirectoryForContinousScanning(std::string &, const int &);
 
-	bool CreateDirectoryForStopScans(std::string &, int &id_manifest);
+        bool CreateDirectoryForStopScans(std::string &, int &id_manifest);
 
-	double BenchmarkWriteSpeed(const std::string& filename, size_t fileSizeMB);
+        double BenchmarkWriteSpeed(const std::string& filename, size_t fileSizeMB);
+
+        bool ShouldRotate(size_t pointCount, double elapsedSec, int chunkSizeMb, int chunkDurationSec,
+                           float &remainingSizeMb, float &remainingTimeSec);
 
 
 private:
