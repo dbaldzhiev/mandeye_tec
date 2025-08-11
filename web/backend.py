@@ -29,6 +29,7 @@ lib.StopScan.restype = ctypes.c_bool
 lib.TriggerStopScan.restype = ctypes.c_bool
 lib.produceReport.argtypes = [ctypes.c_bool]
 lib.produceReport.restype = ctypes.c_char_p
+lib.SetChunkOptions.argtypes = [ctypes.c_int, ctypes.c_int]
 
 status_cache = {}
 

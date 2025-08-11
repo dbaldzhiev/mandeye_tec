@@ -14,6 +14,7 @@ struct LazStats {
     nlohmann::json produceStatus() const;
 
 };
+constexpr float LAS_POINT_RECORD_SIZE_BYTES = 28.0f;
 
 std::optional<LazStats> saveLaz(const std::string& filename, LivoxPointsBufferPtr buffer);
 }

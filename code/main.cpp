@@ -12,6 +12,7 @@
 #include <LivoxClient.h>
 #include <chrono>
 #include <fstream>
+#include <atomic>
 #include "utils/logger.h"
 #include "utils/network.h"
 #include <string>
@@ -31,10 +32,21 @@ struct MandeyeConfig
         std::string livox_interface_ip = utils::getInterfaceIp();
         std::string repository_path = MANDEYE_REPO;
         int server_port = SERVER_PORT;
+        int chunk_size_mb = 100;
+        int chunk_duration_s = 10;
 };
 
 MandeyeConfig LoadConfig();
 static MandeyeConfig g_config;
+static std::atomic<int> g_chunk_size_mb{0};
+static std::atomic<int> g_chunk_duration_s{0};
+
+struct ChunkEstimate
+{
+        float remaining_time_s{0.f};
+        float remaining_size_mb{0.f};
+};
+static ChunkEstimate g_nextChunkEstimate;
 
 namespace mandeye
 {
@@ -106,12 +118,12 @@ std::string produceReport(bool reportUSB = true)
 	}
 
 	j["fs_benchmark"]["write_speed_10mb"] = std::round(usbWriteSpeed10Mb * 100) / 100.0;
-	j["fs_benchmark"]["write_speed_1mb"] = std::round(usbWriteSpeed1Mb * 100) / 100.0;
+        j["fs_benchmark"]["write_speed_1mb"] = std::round(usbWriteSpeed1Mb * 100) / 100.0;
 
-	if(fileSystemClientPtr && reportUSB)
-	{
-		j["fs"] = fileSystemClientPtr->produceStatus();
-	}
+        if(fileSystemClientPtr && reportUSB)
+        {
+                j["fs"] = fileSystemClientPtr->produceStatus();
+        }
 	if(gnssClientPtr)
 	{
 		j["gnss"] = gnssClientPtr->produceStatus();
@@ -121,7 +133,11 @@ std::string produceReport(bool reportUSB = true)
 		j["gnss"] = {};
 	}
 
-	j["lastLazStatus"] = lastFileSaveStats.produceStatus();
+        j["lastLazStatus"] = lastFileSaveStats.produceStatus();
+        j["chunk"]["size_mb"] = g_chunk_size_mb.load();
+        j["chunk"]["duration_s"] = g_chunk_duration_s.load();
+        j["nextChunk"]["remaining_time_s"] = g_nextChunkEstimate.remaining_time_s;
+        j["nextChunk"]["remaining_size_mb"] = g_nextChunkEstimate.remaining_size_mb;
 
 	std::ostringstream s;
 	s << std::setw(4) << j;
@@ -459,7 +475,32 @@ void stateWatcher()
                 else if(app_state == States::SCANNING || app_state == States::STOPPING_STAGE_1 || app_state == States::STOPPING_STAGE_2)
                 {
                         const auto now = std::chrono::steady_clock::now();
-                        if(now - chunkStart > std::chrono::seconds(10) && app_state == States::SCANNING)
+                        double elapsedSec = std::chrono::duration<double>(now - chunkStart).count();
+                        size_t pointCount = 0;
+                        if(livoxCLientPtr)
+                        {
+                                auto st = livoxCLientPtr->produceStatus();
+                                try
+                                {
+                                        pointCount = st["buffers"]["point"]["counter"].get<size_t>();
+                                }
+                                catch(...)
+                                {
+                                        pointCount = 0;
+                                }
+                        }
+                        float remainingSizeMb{0.f}, remainingTimeSec{0.f};
+                        bool doRotate = false;
+                        if(fileSystemClientPtr)
+                        {
+                                doRotate = fileSystemClientPtr->ShouldRotate(pointCount, elapsedSec,
+                                                                               g_chunk_size_mb.load(),
+                                                                               g_chunk_duration_s.load(),
+                                                                               remainingSizeMb, remainingTimeSec);
+                                g_nextChunkEstimate.remaining_size_mb = remainingSizeMb;
+                                g_nextChunkEstimate.remaining_time_s = remainingTimeSec;
+                        }
+                        if(doRotate && app_state == States::SCANNING)
                         {
                                 chunkStart = std::chrono::steady_clock::now();
 
@@ -699,6 +740,14 @@ MandeyeConfig LoadConfig()
                         {
                                 cfg.server_port = j["server_port"].get<int>();
                         }
+                        if(j.contains("chunk_size_mb") && j["chunk_size_mb"].is_number_integer())
+                        {
+                                cfg.chunk_size_mb = j["chunk_size_mb"].get<int>();
+                        }
+                        if(j.contains("chunk_duration_s") && j["chunk_duration_s"].is_number_integer())
+                        {
+                                cfg.chunk_duration_s = j["chunk_duration_s"].get<int>();
+                        }
                 }
                 catch(...)
                 {
@@ -714,6 +763,8 @@ std::thread thStateMachine;
 void InitProgram()
 {
     g_config = LoadConfig();
+    g_chunk_size_mb = g_config.chunk_size_mb;
+    g_chunk_duration_s = g_config.chunk_duration_s;
     mandeye::fileSystemClientPtr = std::make_shared<mandeye::FileSystemClient>(g_config.repository_path);
     thLivox = std::thread([&]() {
         {
@@ -802,6 +853,12 @@ extern "C" bool StopScan()
 extern "C" bool TriggerStopScan()
 {
     return mandeye::TriggerStopScan();
+}
+
+extern "C" void SetChunkOptions(int duration_s, int size_mb)
+{
+    g_chunk_duration_s.store(duration_s);
+    g_chunk_size_mb.store(size_mb);
 }
 
 extern "C" const char* produceReport(bool reportUSB)

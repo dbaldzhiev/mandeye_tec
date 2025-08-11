@@ -89,7 +89,7 @@ std::optional<mandeye::LazStats> mandeye::saveLaz(const std::string& filename, L
 	header->number_of_point_records = num_points;//buffer->size();
 	header->number_of_points_by_return[0] = num_points;//buffer->size();
 	header->number_of_points_by_return[1] = 0;
-	header->point_data_record_length = 28;
+        header->point_data_record_length = static_cast<uint16_t>(LAS_POINT_RECORD_SIZE_BYTES);
 	header->x_scale_factor = scale;
 	header->y_scale_factor = scale;
 	header->z_scale_factor = scale;

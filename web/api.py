@@ -4,8 +4,8 @@ import os
 import time
 import zmq
 from collections import deque
-from flask import Blueprint, Response, jsonify, current_app
-from backend import lib, status_cache
+from flask import Blueprint, Response, jsonify, current_app, request
+from backend import lib, status_cache, config
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -42,6 +42,17 @@ def stopscan():
     if lib.TriggerStopScan():
         return '', 204
     return jsonify({'error': 'unable to trigger stop scan'}), 400
+
+
+@api_bp.route('/config', methods=['POST'])
+def update_config():
+    data = request.get_json(force=True)
+    size = int(data.get('chunk_size_mb', config.get('chunk_size_mb', 0)))
+    duration = int(data.get('chunk_duration_s', config.get('chunk_duration_s', 0)))
+    lib.SetChunkOptions(duration, size)
+    config['chunk_size_mb'] = size
+    config['chunk_duration_s'] = duration
+    return '', 204
 
 
 def zmq_event_stream(port):
