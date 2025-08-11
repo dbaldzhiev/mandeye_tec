@@ -97,3 +97,16 @@ def log_event_stream():
 @api_bp.route('/logs')
 def logs():
     return log_event_stream()
+
+
+@api_bp.route('/recordings')
+def recordings():
+    repo = config.get('repository_path', '/media/usb/')
+    recs = []
+    try:
+        for entry in os.scandir(repo):
+            if entry.is_dir():
+                recs.append({'folder': entry.name})
+    except OSError:
+        pass
+    return jsonify({'recordings': recs})
