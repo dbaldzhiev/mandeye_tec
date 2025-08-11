@@ -234,7 +234,7 @@
             startBtn.disabled = !!statusData.recording;
             stopBtn.disabled = !statusData.recording;
             setIndicator('eth0_ip', statusData.eth0_ip || 'eth0 ?', !!statusData.eth0_ip);
-            setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
+            setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_state === 'connected');
             setIndicator('flash', 'storage', statusData.storage_present);
             const freeEl = document.getElementById('free_space');
             if (statusData.free_space != null){
@@ -246,13 +246,17 @@
               freeEl.className = 'bad';
             }
             const lidarEl = document.getElementById('lidar_status');
-            if (statusData.lidar_detected){
+            if (statusData.lidar_state === 'connected'){
               lidarEl.innerHTML = '<span aria-hidden="true">✅</span> connected';
               lidarEl.setAttribute('aria-label', 'connected');
               lidarEl.style.color = 'green';
+            }else if (statusData.lidar_state === 'unreachable'){
+              lidarEl.innerHTML = '<span aria-hidden="true">❌</span> unreachable';
+              lidarEl.setAttribute('aria-label', 'unreachable');
+              lidarEl.style.color = 'red';
             }else{
-              lidarEl.innerHTML = '<span aria-hidden="true">❌</span> disconnected';
-              lidarEl.setAttribute('aria-label', 'disconnected');
+              lidarEl.innerHTML = '<span aria-hidden="true">❌</span> offline';
+              lidarEl.setAttribute('aria-label', 'offline');
               lidarEl.style.color = 'red';
             }
             const streamEl = document.getElementById('stream_status');
@@ -270,7 +274,7 @@
                 streamProg.value = 0;
               }
             }else{
-              if (statusData.lidar_detected){
+              if (statusData.lidar_state === 'connected'){
                 streamEl.textContent = 'idle';
                 streamEl.setAttribute('aria-label', 'idle');
                 streamEl.style.color = 'black';
@@ -284,7 +288,7 @@
             }
             if (!statusData.storage_present){
               showMessage(false, 'No external USB drive detected');
-            }else if (!statusData.lidar_detected){
+            }else if (statusData.lidar_state !== 'connected'){
               showMessage(false, 'No LiDAR detected');
             }else if (statusData.recording && !statusData.lidar_streaming){
               showMessage(false, 'No LiDAR data received');

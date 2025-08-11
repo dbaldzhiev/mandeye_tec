@@ -7,6 +7,8 @@ import time
 import subprocess
 import shutil
 import re
+import socket
+import errno
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'mandeye_config.json')
 
@@ -55,6 +57,8 @@ def poll_status():
     device and clear the detailed information if it hasn't updated recently.
     """
     global status_cache
+    last_probe = 0
+    probe_reachable = False
     while True:
         raw = lib.produceReport(ctypes.c_bool(True)).decode("utf-8")
         try:
@@ -67,7 +71,9 @@ def poll_status():
         ts = livox.get("LivoxLidarInfo", {}).get("timestamp_s")
         init_success = livox.get("init_success")
 
-        if not (init_success and ts and now - ts < 3):
+        connected = bool(init_success and ts and now - ts < 3)
+
+        if not connected:
             # Either the LiDAR was never initialised or we haven't received
             # an acknowledgement in a while – clear any stale details so the
             # UI can show a disconnected state.
@@ -104,14 +110,25 @@ def poll_status():
         lidar_ip = config.get('livox_interface_ip')
         data['lidar_ip'] = lidar_ip
 
-        def ping(host):
-            try:
-                subprocess.check_output(['ping', '-c', '1', '-W', '1', host], stderr=subprocess.DEVNULL)
-                return True
-            except Exception:
-                return False
+        if connected:
+            probe_reachable = True
+        elif lidar_ip:
+            if now - last_probe > 10:
+                last_probe = now
+                try:
+                    with socket.create_connection((lidar_ip, 80), timeout=0.2):
+                        probe_reachable = True
+                except OSError as e:
+                    probe_reachable = e.errno == errno.ECONNREFUSED
+        else:
+            probe_reachable = False
 
-        data['lidar_detected'] = bool(lidar_ip and ping(lidar_ip))
+        lidar_detected = connected or probe_reachable
+        data['lidar_detected'] = lidar_detected
+        if lidar_detected:
+            data['lidar_state'] = 'connected' if connected else 'unreachable'
+        else:
+            data['lidar_state'] = 'offline'
         data['chunk_size_mb'] = config.get('chunk_size_mb')
         data['chunk_duration_s'] = config.get('chunk_duration_s')
 
