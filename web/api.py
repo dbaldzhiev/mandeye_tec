@@ -2,6 +2,7 @@ import ctypes
 import json
 import os
 import time
+import subprocess
 import zmq
 from collections import deque
 from flask import Blueprint, Response, jsonify, current_app
@@ -42,6 +43,16 @@ def stopscan():
     if lib.TriggerStopScan():
         return '', 204
     return jsonify({'error': 'unable to trigger stop scan'}), 400
+
+
+@api_bp.route('/setup_static_ip', methods=['POST'])
+def setup_static_ip():
+    script = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'ds_setup_static_ip.sh')
+    try:
+        subprocess.run([script], check=True)
+        return '', 204
+    except subprocess.CalledProcessError as exc:
+        return jsonify({'error': 'static ip setup failed', 'details': str(exc)}), 500
 
 
 def zmq_event_stream(port):
