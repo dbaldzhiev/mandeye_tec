@@ -5,6 +5,7 @@
 #include <sstream>
 #include <stdbool.h>
 #include <string>
+#include <algorithm>
 #include <unistd.h>
 namespace mandeye
 {
@@ -50,12 +51,12 @@ nlohmann::json FileSystemClient::produceStatus()
 
 	try
 	{
-		data["FileSystemClient"]["dirs"] = GetDirectories();
-	}
-	catch(std::filesystem::filesystem_error& e)
-	{
-		data["FileSystemClient"]["error"] = e.what();
-	}
+                data["FileSystemClient"]["dirs"] = GetDirectories(2, false);
+        }
+        catch(std::filesystem::filesystem_error& e)
+        {
+                data["FileSystemClient"]["error"] = e.what();
+        }
 	return data;
 }
 
@@ -201,26 +202,44 @@ bool FileSystemClient::CreateDirectoryForStopScans(std::string& writable_dir, in
 	}
 }
 
-std::vector<std::string> FileSystemClient::GetDirectories()
+std::vector<std::string> FileSystemClient::GetDirectories(int maxDepth,
+                                                         bool includeFileSizes,
+                                                         std::function<void(const std::string&)> onEntry)
 {
-	std::unique_lock<std::mutex> lck(m_mutex);
-	std::vector<std::string> fn;
+        std::unique_lock<std::mutex> lck(m_mutex);
+        std::vector<std::string> fn;
 
-	for(const auto& entry : std::filesystem::recursive_directory_iterator(m_repository))
-	{
-		if(entry.is_regular_file())
-		{
-			auto size = std::filesystem::file_size(entry);
-			float fsize = static_cast<float>(size) / (1024 * 1024);
-			fn.push_back(entry.path().string() + " " + std::to_string(fsize) + " Mb");
-		}
-		else
-		{
-			fn.push_back(entry.path().string());
-		}
-	}
-	std::sort(fn.begin(), fn.end());
-	return fn;
+        for(auto it = std::filesystem::recursive_directory_iterator(m_repository); it != std::filesystem::recursive_directory_iterator(); ++it)
+        {
+                if(maxDepth >= 0 && it.depth() >= maxDepth)
+                {
+                        it.disable_recursion_pending();
+                }
+
+                std::string entryStr = it->path().string();
+                if(includeFileSizes && it->is_regular_file())
+                {
+                        auto size = std::filesystem::file_size(*it);
+                        float fsize = static_cast<float>(size) / (1024 * 1024);
+                        entryStr += " " + std::to_string(fsize) + " Mb";
+                }
+
+                if(onEntry)
+                {
+                        onEntry(entryStr);
+                }
+                else
+                {
+                        fn.push_back(entryStr);
+                }
+        }
+
+        if(!onEntry)
+        {
+                std::sort(fn.begin(), fn.end());
+        }
+
+        return fn;
 }
 
 bool FileSystemClient::GetIsWritable()
