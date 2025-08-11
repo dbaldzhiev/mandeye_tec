@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mandeye Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
     <style>
       pre { white-space: pre-wrap; word-break: break-word; }
@@ -12,36 +13,49 @@
   </head>
   <body>
     <div id="app" class="container py-4">
-      <h1 class="mb-4 text-center">Mandeye Status
-        <span class="ms-2 badge" :class="stateBadge">{{ status.state || 'Unknown' }}</span>
-      </h1>
+      <header class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <h1 class="h5 mb-0">Mandeye</h1>
+          <span class="badge" :class="stateBadge">{{ status.state || 'Unknown' }}</span>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <div class="d-flex align-items-center" :class="lidarConnected ? 'text-success' : 'text-danger'">
+            <i class="bi bi-bullseye"></i>
+            <span class="ms-1">LiDAR</span>
+          </div>
+          <div class="d-flex align-items-center" :class="imuConnected ? 'text-success' : 'text-danger'">
+            <i class="bi bi-compass"></i>
+            <span class="ms-1">IMU</span>
+          </div>
+          <div v-if="gnssConnected" class="d-flex align-items-center text-success">
+            <i class="bi bi-geo-alt"></i>
+            <span class="ms-1">GNSS</span>
+          </div>
+          <div v-if="usbInfo" class="d-flex align-items-center text-success">
+            <i class="bi bi-usb-drive"></i>
+            <span class="ms-1">USB</span>
+          </div>
+          <div class="d-flex align-items-center" :class="online ? 'text-success' : 'text-danger'">
+            <i :class="online ? 'bi bi-wifi' : 'bi bi-wifi-off'"></i>
+            <span class="ms-1">Net</span>
+          </div>
+        </div>
+      </header>
 
       <div v-if="error" class="alert alert-danger" role="alert" aria-live="assertive">{{ error }}</div>
-      <div v-if="message" class="alert alert-success" role="alert">{{ message }}</div>
 
-      <div class="d-flex flex-wrap gap-2 mb-3 justify-content-center align-items-center">
-        <button class="btn btn-primary" @click="sendCommand('/api/start_scan')" :disabled="loading">Start Scan</button>
-        <button class="btn btn-warning" @click="sendCommand('/api/stop_scan')" :disabled="loading">Stop Scan</button>
-        <button class="btn btn-danger" @click="sendCommand('/api/stopscan')" :disabled="loading">Trigger Stop Scan</button>
-        <div v-if="loading" class="spinner-border spinner-border-sm text-secondary" role="status">
-          <span class="visually-hidden">Loading...</span>
+      <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
+        <button class="btn btn-outline-secondary" @click="togglePause">
+          {{ viewerPaused ? 'Resume Viewer' : 'Pause Viewer' }}
+        </button>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small">Chunk Duration</label>
+          <select v-model="chunkDuration" class="form-select form-select-sm w-auto">
+            <option v-for="opt in chunkOptions" :value="opt">{{ opt }}s</option>
+          </select>
         </div>
-      </div>
-
-      <div class="row row-cols-1 row-cols-md-3 g-3">
-        <div class="col" v-for="sys in systems" :key="sys.key">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between">
-              <span>{{ sys.label }}</span>
-              <span :class="['badge', systemConnected(sys) ? 'bg-success' : 'bg-danger']">
-                {{ systemConnected(sys) ? 'Connected' : 'Disconnected' }}
-              </span>
-            </div>
-            <div class="card-body">
-              <pre v-if="systemConnected(sys)" class="mb-0">{{ format(status[sys.key]) }}</pre>
-              <div v-else :class="sys.missingClass">{{ sys.missingMsg }}</div>
-            </div>
-          </div>
+        <div v-if="usbInfo" class="ms-auto small">
+          Output: {{ usbInfo.repository }} ({{ usbInfo.free_str }} free)
         </div>
       </div>
 
@@ -88,15 +102,12 @@
             status: {},
             stream: {},
             error: '',
-            message: '',
-            loading: false,
             logs: [],
             logFilter: '',
-            systems: [
-              { key:'livox', label:'Lidar', missingMsg:'Lidar not detected', missingClass:'text-danger'},
-              { key:'gnss', label:'GNSS', missingMsg:'GNSS not detected', missingClass:'text-danger'},
-              { key:'fs', label:'Filesystem', missingMsg:'USB storage missing', missingClass:'text-warning'}
-            ]
+            viewerPaused: JSON.parse(localStorage.getItem('viewerPaused') || 'false'),
+            chunkDuration: localStorage.getItem('chunkDuration') || '10',
+            chunkOptions: ['10', '30', '60'],
+            online: navigator.onLine
           };
         },
         computed: {
@@ -110,25 +121,46 @@
             if (st.includes('SCAN')) return 'bg-success';
             if (st) return 'bg-info';
             return 'bg-secondary';
-          }
-        },
-        methods: {
-          format(obj) {
-            return JSON.stringify(obj || {}, null, 2);
           },
-          systemConnected(sys) {
-            const data = this.status[sys.key];
+          lidarConnected() {
+            const data = this.status.livox;
             if (!data) return false;
-            if (sys.key === 'livox') {
-              if (!data.init_success) return false;
-              const ts = data?.LivoxLidarInfo?.timestamp_s;
-              if (!ts) return false;
-              return (Date.now() / 1000 - ts) < 5;
-            }
+            if (!data.init_success) return false;
+            const ts = data?.LivoxLidarInfo?.timestamp_s;
+            if (!ts) return false;
+            return (Date.now() / 1000 - ts) < 5;
+          },
+          imuConnected() {
+            const data = this.status.imu;
+            if (!data) return false;
             if ('init_success' in data) return !!data.init_success;
             return Object.keys(data).length > 0;
           },
+          gnssConnected() {
+            const data = this.status.gnss;
+            if (!data) return false;
+            if ('init_success' in data) return !!data.init_success;
+            return Object.keys(data).length > 0;
+          },
+          usbInfo() {
+            const fs = this.status.fs?.FileSystemClient;
+            if (!fs || !fs.mounted) return null;
+            const free = fs.free_megabytes;
+            if (typeof free === 'number' && free < 100) return null;
+            return fs;
+          }
+        },
+        watch: {
+          viewerPaused(val) {
+            localStorage.setItem('viewerPaused', JSON.stringify(val));
+          },
+          chunkDuration(val) {
+            localStorage.setItem('chunkDuration', val);
+          }
+        },
+        methods: {
           updateStatus() {
+            if (this.viewerPaused) return;
             fetch('/api/status')
               .then(r => r.json())
               .then(data => { this.status = data; })
@@ -137,21 +169,8 @@
                 setTimeout(() => this.error = '', 3000);
               });
           },
-          sendCommand(url) {
-            this.loading = true;
-            fetch(url, { method: 'POST' })
-              .then(r => {
-                if (!r.ok) throw new Error('Command failed');
-                this.message = 'Command successful';
-                setTimeout(() => this.message = '', 3000);
-              })
-              .catch(err => {
-                this.error = err.message;
-                setTimeout(() => this.error = '', 3000);
-              })
-              .finally(() => {
-                this.loading = false;
-              });
+          togglePause() {
+            this.viewerPaused = !this.viewerPaused;
           },
           logClass(level) {
             return {
@@ -166,11 +185,13 @@
         },
         mounted() {
           this.updateStatus();
-          setInterval(this.updateStatus, 5000);
+          setInterval(() => { if (!this.viewerPaused) this.updateStatus(); }, 5000);
 
           const source = new EventSource('/api/stream');
           source.onmessage = e => {
-            try { this.stream = JSON.parse(e.data); } catch (err) {}
+            if (!this.viewerPaused) {
+              try { this.stream = JSON.parse(e.data); } catch (err) {}
+            }
           };
           source.onerror = () => {
             this.error = 'Stream connection lost';
@@ -179,6 +200,7 @@
 
           const logSource = new EventSource('/api/logs');
           logSource.onmessage = e => {
+            if (this.viewerPaused) return;
             const raw = e.data;
             const m = raw.match(/^\[(\w+)\]\s*(.*)$/);
             const level = m ? m[1] : 'INFO';
@@ -194,6 +216,9 @@
             this.error = 'Log stream connection lost';
             setTimeout(() => this.error = '', 3000);
           };
+
+          window.addEventListener('online', () => this.online = true);
+          window.addEventListener('offline', () => this.online = false);
         }
       }).mount('#app');
     </script>
