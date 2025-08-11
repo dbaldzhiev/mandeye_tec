@@ -12,6 +12,7 @@ lib.Init()
 atexit.register(lib.Shutdown)
 
 lib.StartScan.restype = ctypes.c_bool
+lib.StopScan.restype = ctypes.c_bool
 lib.produceReport.argtypes = [ctypes.c_bool]
 lib.produceReport.restype = ctypes.c_char_p
 
