@@ -33,12 +33,12 @@
           <div class="card h-100">
             <div class="card-header d-flex justify-content-between">
               <span>{{ sys.label }}</span>
-              <span :class="['badge', hasKeys(status[sys.key]) ? 'bg-success' : 'bg-danger']">
-                {{ hasKeys(status[sys.key]) ? 'Connected' : 'Disconnected' }}
+              <span :class="['badge', systemConnected(sys) ? 'bg-success' : 'bg-danger']">
+                {{ systemConnected(sys) ? 'Connected' : 'Disconnected' }}
               </span>
             </div>
             <div class="card-body">
-              <pre v-if="hasKeys(status[sys.key])" class="mb-0">{{ format(status[sys.key]) }}</pre>
+              <pre v-if="systemConnected(sys)" class="mb-0">{{ format(status[sys.key]) }}</pre>
               <div v-else :class="sys.missingClass">{{ sys.missingMsg }}</div>
             </div>
           </div>
@@ -116,8 +116,17 @@
           format(obj) {
             return JSON.stringify(obj || {}, null, 2);
           },
-          hasKeys(obj) {
-            return obj && Object.keys(obj).length > 0;
+          systemConnected(sys) {
+            const data = this.status[sys.key];
+            if (!data) return false;
+            if (sys.key === 'livox') {
+              if (!data.init_success) return false;
+              const ts = data?.LivoxLidarInfo?.timestamp_s;
+              if (!ts) return false;
+              return (Date.now() / 1000 - ts) < 5;
+            }
+            if ('init_success' in data) return !!data.init_success;
+            return Object.keys(data).length > 0;
           },
           updateStatus() {
             fetch('/api/status')
