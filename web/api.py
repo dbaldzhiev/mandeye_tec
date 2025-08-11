@@ -1,10 +1,6 @@
-import ctypes
-import json
-import os
-import time
-import subprocess
-import zmq
+import os, json, ctypes, subprocess, time
 from collections import deque
+import zmq
 from flask import Blueprint, Response, jsonify, current_app
 from backend import lib, status_cache
 
