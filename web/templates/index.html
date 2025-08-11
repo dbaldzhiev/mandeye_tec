@@ -170,26 +170,21 @@
         await updateStatusAndRecordings();
       }
 
-      async function stopRec(){
-        try {
-          let res = await fetch('/api/stop_scan',{method:'POST'});
-          let data = res.status === 204 ? {status:'stopped'} : await res.json();
-          showMessage(res.ok, data.status || data.error || 'stopped');
-          if(!res.ok){
-            res = await fetch('/api/stopscan',{method:'POST'});
-            data = res.status === 204 ? {status:'stopped'} : await res.json();
+        async function stopRec(){
+          try {
+            const res = await fetch('/api/stop_scan',{method:'POST'});
+            const data = res.status === 204 ? {status:'stopped'} : await res.json();
             showMessage(res.ok, data.status || data.error || 'stopped');
+          } catch(err){
+            showMessage(false, err.message || 'failed to contact server');
           }
-        } catch(err){
-          showMessage(false, err.message || 'failed to contact server');
+          try {
+            await updateStatusAndRecordings();
+          } finally {
+            document.getElementById('start_btn').disabled = false;
+            document.getElementById('stop_btn').disabled = true;
+          }
         }
-        try {
-          await updateStatusAndRecordings();
-        } finally {
-          document.getElementById('start_btn').disabled = false;
-          document.getElementById('stop_btn').disabled = true;
-        }
-      }
 
       function showMessage(success, message){
         const msg = document.getElementById('messages');

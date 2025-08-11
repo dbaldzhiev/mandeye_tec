@@ -37,13 +37,6 @@ def stop_scan():
     return jsonify({'error': 'unable to stop scan'}), 400
 
 
-@api_bp.route('/stopscan', methods=['POST'])
-def stopscan():
-    if lib.TriggerStopScan():
-        return '', 204
-    return jsonify({'error': 'unable to trigger stop scan'}), 400
-
-
 @api_bp.route('/config', methods=['POST'])
 def update_config():
     data = request.get_json(force=True)
