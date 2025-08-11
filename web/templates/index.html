@@ -1,272 +1,332 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mandeye Control</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Remote Mandeye Controller for HDMapping</title>
     <style>
-      pre { white-space: pre-wrap; word-break: break-word; }
+      :root {
+        --primary: #007bff;
+        --danger: #dc3545;
+        --success: #28a745;
+        --bg: #f4f4f4;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: var(--bg);
+      }
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+      h1 {
+        text-align: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      #messages {
+        text-align: center;
+        margin-bottom: 1rem;
+        min-height: 1.2rem;
+      }
+      .status-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .5rem;
+        margin-bottom: 1rem;
+      }
+      .status-grid p {
+        margin: 0;
+        padding: .5rem;
+        background: #fff;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+      .status-grid progress {
+        width: 100%;
+        height: 8px;
+        display: block;
+        margin-top: .25rem;
+      }
+      #actions {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+      button {
+        flex: 1;
+        padding: 0.75rem;
+        font-size: 1rem;
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+      }
+      button + button {
+        margin-left: .5rem;
+      }
+      #start_btn {
+        background: var(--primary);
+      }
+      #stop_btn {
+        background: var(--danger);
+      }
+      button:disabled {
+        background: #ccc;
+        color: #666;
+        cursor: not-allowed;
+        opacity: .6;
+      }
+      ul {
+        padding-left: 1rem;
+      }
+      #sysbar {
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        background:#eee;
+        gap:.25rem;
+        font-size:.75rem;
+        padding:.25rem;
+      }
+      #sysbar span {
+        padding:0 .25rem;
+        border-radius:3px;
+      }
+      .ok { background: var(--success); color:#fff; }
+      .bad { background: var(--danger); color:#fff; }
+      .warn { background: #ffc107; color:#000; }
+      @media (min-width: 600px) {
+        .container { max-width: 700px; }
+        .status-grid { grid-template-columns: repeat(2, 1fr); }
+        button { flex: none; padding: 0.75rem 1.5rem; }
+      }
     </style>
   </head>
   <body>
-    <div id="app" class="container py-4">
-      <header class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
-          <h1 class="h5 mb-0">Mandeye</h1>
-          <span class="badge" :class="stateBadge">{{ status.state || 'Unknown' }}</span>
-        </div>
-        <div class="d-flex align-items-center gap-3">
-          <div class="d-flex align-items-center" :class="lidarConnected ? 'text-success' : 'text-danger'">
-            <i class="bi bi-bullseye"></i>
-            <span class="ms-1">LiDAR</span>
-          </div>
-          <div class="d-flex align-items-center" :class="imuConnected ? 'text-success' : 'text-danger'">
-            <i class="bi bi-compass"></i>
-            <span class="ms-1">IMU</span>
-          </div>
-          <div v-if="gnssConnected" class="d-flex align-items-center text-success">
-            <i class="bi bi-geo-alt"></i>
-            <span class="ms-1">GNSS</span>
-          </div>
-          <div v-if="usbInfo" class="d-flex align-items-center text-success">
-            <i class="bi bi-usb-drive"></i>
-            <span class="ms-1">USB</span>
-          </div>
-          <div class="d-flex align-items-center" :class="online ? 'text-success' : 'text-danger'">
-            <i :class="online ? 'bi bi-wifi' : 'bi bi-wifi-off'"></i>
-            <span class="ms-1">Net</span>
-          </div>
-        </div>
-      </header>
-
-      <div v-if="error" class="alert alert-danger" role="alert" aria-live="assertive">{{ error }}</div>
-
-      <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
-        <button class="btn btn-outline-secondary" @click="togglePause">
-          {{ viewerPaused ? 'Resume Viewer' : 'Pause Viewer' }}
-        </button>
-        <div class="d-flex align-items-center gap-2">
-          <label class="form-label mb-0 small">Chunk Duration</label>
-          <select v-model="chunkDuration" class="form-select form-select-sm w-auto">
-            <option v-for="opt in chunkOptions" :value="opt">{{ opt }}s</option>
-          </select>
-        </div>
-        <select v-model.number="chunkDuration" @change="updateConfig" class="form-select w-auto">
-          <option :value="10">10 s</option>
-          <option :value="30">30 s</option>
-          <option :value="60">60 s</option>
-        </select>
-        <select v-model.number="chunkSize" @change="updateConfig" class="form-select w-auto">
-          <option :value="50">50 MB</option>
-          <option :value="100">100 MB</option>
-          <option :value="200">200 MB</option>
-        </select>
-      </div>
-
-      <div class="row row-cols-1 row-cols-md-3 g-3">
-        <div class="col" v-for="sys in systems" :key="sys.key">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between">
-              <span>{{ sys.label }}</span>
-              <span :class="['badge', systemConnected(sys) ? 'bg-success' : 'bg-danger']">
-                {{ systemConnected(sys) ? 'Connected' : 'Disconnected' }}
-              </span>
-            </div>
-            <div class="card-body">
-              <pre v-if="systemConnected(sys)" class="mb-0">{{ format(status[sys.key]) }}</pre>
-              <div v-else :class="sys.missingClass">{{ sys.missingMsg }}</div>
-            </div>
-          </div>
-
-        <div v-if="usbInfo" class="ms-auto small">
-          Output: {{ usbInfo.repository }} ({{ usbInfo.free_str }} free)
-
-        </div>
-      </div>
-
-      <div class="row row-cols-1 row-cols-md-2 g-3 mt-2">
-        <div class="col">
-          <div class="card h-100">
-            <div class="card-header">Scan Info</div>
-            <div class="card-body">
-              <p class="mb-1">Mode: {{ stream.mode || status.state || 'N/A' }}</p>
-              <p class="mb-1">Elapsed: {{ Math.round((stream.dur||0)/1e9) }} s</p>
-              <p class="mb-1">Last Saved File: {{ status.lastLazStatus && status.lastLazStatus.filename || 'N/A' }}</p>
-              <p class="mb-1">Next Chunk: ~{{ (status.nextChunk && status.nextChunk.remaining_time_s || 0).toFixed(1) }} s / ~{{ (status.nextChunk && status.nextChunk.remaining_size_mb || 0).toFixed(1) }} MB</p>
-              <p v-if="status.state && status.state.includes('ERROR')" class="text-danger fw-bold">Error: {{ status.state }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="col">
-          <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <span>Logs</span>
-              <div class="d-flex gap-2 align-items-center">
-                <select v-model="logFilter" class="form-select form-select-sm w-auto">
-                  <option value="">All</option>
-                  <option value="INFO">Info</option>
-                  <option value="WARN">Warn</option>
-                  <option value="ERROR">Error</option>
-                </select>
-                <button class="btn btn-sm btn-outline-secondary" @click="clearLogs">Clear</button>
-              </div>
-            </div>
-            <pre id="logBox" class="bg-light p-2 small mb-0" style="max-height:200px; overflow-y:auto;">
-              <div v-for="(l, idx) in filteredLogs" :key="idx" :class="logClass(l.level)">{{ l.raw }}</div>
-            </pre>
-          </div>
-        </div>
-      </div>
+    <div id="sysbar">
+      <span id="eth0_ip" class="bad">eth0 ?</span>
+      <span id="lidar_ip" class="bad">lidar ?</span>
+      <span id="livox_sdk2" class="bad">LivoxSDK2</span>
+      <span id="save_laz" class="bad">save_laz</span>
+      <span id="laszip" class="bad">LASzip</span>
+      <span id="flash" class="bad">storage</span>
+      <span id="free_space" class="bad">?</span>
     </div>
-
+    <main class="container">
+      <h1>Remote Mandeye Controller for HDMapping</h1>
+      <div id="messages" role="status" aria-live="polite"></div>
+      <div id="polling_control" style="text-align:center;margin-bottom:1rem;">
+        <label><input type="checkbox" id="polling_toggle" checked> Live updates</label>
+      </div>
+      <div class="status-grid">
+        <p>Status: <span id="status">idle</span></p>
+        <p>Current file: <span id="current_file">n/a</span></p>
+        <p>Started at: <span id="started">n/a</span></p>
+        <p>Elapsed: <span id="elapsed">00:00:00 (0.00 MB)</span></p>
+        <p>Frames recorded: <span id="frames_recorded">0</span></p>
+        <p>Data rate: <span id="data_rate">0 MB/s</span></p>
+        <p>LiDAR connection: <span id="lidar_status">unknown</span></p>
+        <p>LiDAR stream: <span id="stream_status">n/a</span>
+          <progress id="stream_progress" max="1" value="0"></progress>
+        </p>
+      </div>
+      <div id="actions">
+        <button id="start_btn" onclick="startRec()">Start</button>
+        <button id="stop_btn" onclick="stopRec()" disabled>Stop</button>
+      </div>
+      <section>
+        <h2>Previous recordings</h2>
+        <ul id="recordings"></ul>
+      </section>
+    </main>
     <script>
-      const { createApp } = Vue;
-      createApp({
-        data() {
-          return {
-            status: {},
-            stream: {},
-            error: '',
-            logs: [],
-            logFilter: '',
-
-            systems: [
-              { key:'livox', label:'Lidar', missingMsg:'Lidar not detected', missingClass:'text-danger'},
-              { key:'gnss', label:'GNSS', missingMsg:'GNSS not detected', missingClass:'text-danger'},
-              { key:'fs', label:'Filesystem', missingMsg:'USB storage missing', missingClass:'text-warning'}
-            ],
-            chunkDuration: 10,
-            chunkSize: 100
-
-            viewerPaused: JSON.parse(localStorage.getItem('viewerPaused') || 'false'),
-            chunkDuration: localStorage.getItem('chunkDuration') || '10',
-            chunkOptions: ['10', '30', '60'],
-            online: navigator.onLine
-
-          };
-        },
-        computed: {
-          filteredLogs() {
-            if (!this.logFilter) return this.logs;
-            return this.logs.filter(l => l.level === this.logFilter);
-          },
-          stateBadge() {
-            const st = this.status.state || '';
-            if (st.includes('ERROR')) return 'bg-danger';
-            if (st.includes('SCAN')) return 'bg-success';
-            if (st) return 'bg-info';
-            return 'bg-secondary';
-          },
-          lidarConnected() {
-            const data = this.status.livox;
-            if (!data) return false;
-            if (!data.init_success) return false;
-            const ts = data?.LivoxLidarInfo?.timestamp_s;
-            if (!ts) return false;
-            return (Date.now() / 1000 - ts) < 5;
-          },
-          imuConnected() {
-            const data = this.status.imu;
-            if (!data) return false;
-            if ('init_success' in data) return !!data.init_success;
-            return Object.keys(data).length > 0;
-          },
-          gnssConnected() {
-            const data = this.status.gnss;
-            if (!data) return false;
-            if ('init_success' in data) return !!data.init_success;
-            return Object.keys(data).length > 0;
-          },
-          usbInfo() {
-            const fs = this.status.fs?.FileSystemClient;
-            if (!fs || !fs.mounted) return null;
-            const free = fs.free_megabytes;
-            if (typeof free === 'number' && free < 100) return null;
-            return fs;
-          }
-        },
-        watch: {
-          viewerPaused(val) {
-            localStorage.setItem('viewerPaused', JSON.stringify(val));
-          },
-          chunkDuration(val) {
-            localStorage.setItem('chunkDuration', val);
-          }
-        },
-        methods: {
-          updateStatus() {
-            if (this.viewerPaused) return;
-            fetch('/api/status')
-              .then(r => r.json())
-              .then(data => { this.status = data; this.chunkDuration = data.chunk?.duration_s || this.chunkDuration; this.chunkSize = data.chunk?.size_mb || this.chunkSize; })
-              .catch(err => {
-                this.error = `Failed to fetch status: ${err.message}`;
-                setTimeout(() => this.error = '', 3000);
-              });
-          },
-          togglePause() {
-            this.viewerPaused = !this.viewerPaused;
-          },
-          logClass(level) {
-            return {
-              ERROR: 'text-danger',
-              WARN: 'text-warning',
-              INFO: 'text-info'
-            }[level] || 'text-body';
-          },
-          clearLogs() {
-            this.logs = [];
-          },
-          updateConfig() {
-            fetch('/api/config', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chunk_size_mb: this.chunkSize, chunk_duration_s: this.chunkDuration })
-            });
-          }
-        },
-        mounted() {
-          this.updateStatus();
-          setInterval(() => { if (!this.viewerPaused) this.updateStatus(); }, 5000);
-
-          const source = new EventSource('/api/stream');
-          source.onmessage = e => {
-            if (!this.viewerPaused) {
-              try { this.stream = JSON.parse(e.data); } catch (err) {}
-            }
-          };
-          source.onerror = () => {
-            this.error = 'Stream connection lost';
-            setTimeout(() => this.error = '', 3000);
-          };
-
-          const logSource = new EventSource('/api/logs');
-          logSource.onmessage = e => {
-            if (this.viewerPaused) return;
-            const raw = e.data;
-            const m = raw.match(/^\[(\w+)\]\s*(.*)$/);
-            const level = m ? m[1] : 'INFO';
-            const message = m ? m[2] : raw;
-            this.logs.push({level, message, raw});
-            if (this.logs.length > 200) this.logs.shift();
-            this.$nextTick(() => {
-              const box = document.getElementById('logBox');
-              box.scrollTop = box.scrollHeight;
-            });
-          };
-          logSource.onerror = () => {
-            this.error = 'Log stream connection lost';
-            setTimeout(() => this.error = '', 3000);
-          };
-
-          window.addEventListener('online', () => this.online = true);
-          window.addEventListener('offline', () => this.online = false);
+      const pollingToggle = document.getElementById('polling_toggle');
+      let pollingEnabled = pollingToggle.checked;
+      pollingToggle.addEventListener('change', (e) => {
+        pollingEnabled = e.target.checked;
+        if (pollingEnabled) {
+          updateStatusAndRecordings();
         }
-      }).mount('#app');
+      });
+
+      async function startRec(){
+        try {
+          const res = await fetch('/api/start_scan',{method:'POST'});
+          const data = res.status === 204 ? {status:'started'} : await res.json();
+          showMessage(res.ok, data.status || 'started');
+        } catch(err){
+          showMessage(false, 'failed to contact server');
+        }
+        await updateStatusAndRecordings();
+      }
+
+      async function stopRec(){
+        try {
+          const res = await fetch('/api/stop_scan',{method:'POST'});
+          const data = res.status === 204 ? {status:'stopped'} : await res.json();
+          showMessage(res.ok, data.status || 'stopped');
+        } catch(err){
+          showMessage(false, 'failed to contact server');
+        }
+        await updateStatusAndRecordings();
+      }
+
+      function showMessage(success, message){
+        const msg = document.getElementById('messages');
+        const icon = success ? '✅' : '❌';
+        msg.innerHTML = `<span aria-hidden="true">${icon}</span> ${message}`;
+        msg.setAttribute('aria-label', message);
+        msg.style.color = success ? 'green' : 'red';
+      }
+
+      function setIndicator(id, text, ok){
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = ok ? 'ok' : 'bad';
+      }
+
+      function formatDuration(seconds){
+        const h = Math.floor(seconds/3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600)/60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+      }
+
+      function formatSize(bytes){
+        if (bytes >= 1024*1024*1024){
+          return (bytes/(1024*1024*1024)).toFixed(2)+" GB";
+        }
+        return (bytes/(1024*1024)).toFixed(2)+" MB";
+      }
+
+      async function updateStatusAndRecordings(){
+        try {
+          const statusRes = await fetch('/api/status');
+          if (statusRes.ok){
+            const statusData = await statusRes.json();
+            document.getElementById('status').textContent = statusData.recording ? 'recording' : 'idle';
+            document.getElementById('current_file').textContent = statusData.current_file || statusData.lastLazStatus?.filename || 'n/a';
+            document.getElementById('started').textContent = statusData.started || 'n/a';
+            document.getElementById('frames_recorded').textContent = statusData.frames_recorded || 0;
+            const startBtn = document.getElementById('start_btn');
+            const stopBtn = document.getElementById('stop_btn');
+            startBtn.disabled = !!statusData.recording;
+            stopBtn.disabled = !statusData.recording;
+            setIndicator('eth0_ip', statusData.eth0_ip || 'eth0 ?', !!statusData.eth0_ip);
+            setIndicator('lidar_ip', statusData.lidar_ip || 'lidar ?', statusData.lidar_detected);
+            setIndicator('livox_sdk2', 'LivoxSDK2', statusData.livox_sdk2);
+            setIndicator('save_laz', 'save_laz', statusData.save_laz);
+            setIndicator('laszip', 'LASzip', statusData.laszip);
+            setIndicator('flash', 'storage', statusData.storage_present);
+            const freeEl = document.getElementById('free_space');
+            if (statusData.free_space != null){
+              freeEl.textContent = formatSize(statusData.free_space) + ' free';
+              const gb = statusData.free_space/(1024*1024*1024);
+              freeEl.className = gb < 1 ? 'warn' : 'ok';
+            }else{
+              freeEl.textContent = '?';
+              freeEl.className = 'bad';
+            }
+            const lidarEl = document.getElementById('lidar_status');
+            if (statusData.lidar_detected){
+              lidarEl.innerHTML = '<span aria-hidden="true">✅</span> connected';
+              lidarEl.setAttribute('aria-label', 'connected');
+              lidarEl.style.color = 'green';
+            }else{
+              lidarEl.innerHTML = '<span aria-hidden="true">❌</span> disconnected';
+              lidarEl.setAttribute('aria-label', 'disconnected');
+              lidarEl.style.color = 'red';
+            }
+            const streamEl = document.getElementById('stream_status');
+            const streamProg = document.getElementById('stream_progress');
+            if (statusData.recording){
+              if (statusData.lidar_streaming){
+                streamEl.innerHTML = '<span aria-hidden="true">✅</span> streaming';
+                streamEl.setAttribute('aria-label', 'streaming');
+                streamEl.style.color = 'green';
+                streamProg.value = 1;
+              }else{
+                streamEl.innerHTML = '<span aria-hidden="true">❌</span> no data';
+                streamEl.setAttribute('aria-label', 'no data');
+                streamEl.style.color = 'red';
+                streamProg.value = 0;
+              }
+            }else{
+              if (statusData.lidar_detected){
+                streamEl.textContent = 'idle';
+                streamEl.setAttribute('aria-label', 'idle');
+                streamEl.style.color = 'black';
+                streamProg.value = 0;
+              }else{
+                streamEl.innerHTML = '<span aria-hidden="true">❌</span> n/a';
+                streamEl.setAttribute('aria-label', 'not available');
+                streamEl.style.color = 'red';
+                streamProg.value = 0;
+              }
+            }
+            if (!statusData.storage_present){
+              showMessage(false, 'No external USB drive detected');
+            }else if (!statusData.lidar_detected){
+              showMessage(false, 'No LiDAR detected');
+            }else if (statusData.recording && !statusData.lidar_streaming){
+              showMessage(false, 'No LiDAR data received');
+            }else{
+              const msg = document.getElementById('messages');
+              const label = msg.getAttribute('aria-label');
+              if(['No external USB drive detected','No LiDAR detected','No LiDAR data received'].includes(label)){
+                msg.textContent = '';
+                msg.removeAttribute('aria-label');
+              }
+            }
+            const sizeStr = formatSize(statusData.current_size || 0);
+            if (statusData.recording && statusData.started){
+              const elapsedMs = Date.now() - Date.parse(statusData.started);
+              const elapsedStr = formatDuration(Math.floor(elapsedMs/1000));
+              const elapsedSec = elapsedMs/1000;
+              document.getElementById('elapsed').textContent = `${elapsedStr} (${sizeStr})`;
+              let rateStr = '0 MB/s';
+              if (elapsedSec > 0 && statusData.current_size){
+                rateStr = `${formatSize(statusData.current_size/elapsedSec)}/s`;
+              }
+              document.getElementById('data_rate').textContent = rateStr;
+            }else{
+              document.getElementById('elapsed').textContent = `00:00:00 (${sizeStr})`;
+              document.getElementById('data_rate').textContent = '0 MB/s';
+            }
+          }else{
+            showMessage(false, 'failed to fetch status');
+          }
+        }catch(err){
+          showMessage(false, 'failed to fetch status');
+        }
+
+        try {
+          const recordingsRes = await fetch('/api/recordings');
+          if (recordingsRes.ok){
+            const recordingsData = await recordingsRes.json();
+            const list = document.getElementById('recordings');
+            list.innerHTML = '';
+            recordingsData.recordings.forEach(r => {
+              const li = document.createElement('li');
+              const started = r.started ? `started ${r.started}, ` : '';
+              const stopped = r.stopped ? `stopped ${r.stopped}, ` : '';
+              const frames = r.frames != null ? `frames ${r.frames}` : '';
+              li.textContent = `${r.folder} (${started}${stopped}${frames})`;
+              list.appendChild(li);
+            });
+          }else{
+            showMessage(false, 'failed to fetch recordings');
+          }
+        }catch(err){
+          showMessage(false, 'failed to fetch recordings');
+        }
+      }
+
+      setInterval(() => { if(pollingEnabled) updateStatusAndRecordings(); }, 5000);
+      if(pollingEnabled) updateStatusAndRecordings();
     </script>
   </body>
 </html>
+
