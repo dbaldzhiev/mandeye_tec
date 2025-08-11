@@ -18,30 +18,39 @@ nlohmann::json FileSystemClient::produceStatus()
 {
 	nlohmann::json data;
 	data["FileSystemClient"]["repository"] = m_repository;
-	float free_mb = 0;
+
+	float free_mb{-1.f};
+	bool mounted{false};
+	bool writable{false};
 
 	try
 	{
 		free_mb = CheckAvailableSpace();
+		mounted = free_mb >= 0.f;
 	}
 	catch(std::filesystem::filesystem_error& e)
 	{
 		data["FileSystemClient"]["error"] = e.what();
 	}
+
+	try
+	{
+		writable = GetIsWritable();
+	}
+	catch(std::filesystem::filesystem_error& e)
+	{
+		data["FileSystemClient"]["error"] = e.what();
+	}
+
 	data["FileSystemClient"]["free_megabytes"] = free_mb;
 	data["FileSystemClient"]["free_str"] = ConvertToText(free_mb);
 	data["FileSystemClient"]["benchmarkWriteSpeed"] = m_benchmarkWriteSpeed;
+	data["FileSystemClient"]["mounted"] = mounted;
+	data["FileSystemClient"]["writable"] = writable;
+
 	try
 	{
 		data["FileSystemClient"]["m_nextId"] = m_nextId;
-	}
-	catch(std::filesystem::filesystem_error& e)
-	{
-		data["FileSystemClient"]["error"] = e.what();
-	}
-	try
-	{
-		data["FileSystemClient"]["writable"] = GetIsWritable();
 	}
 	catch(std::filesystem::filesystem_error& e)
 	{
@@ -225,14 +234,20 @@ std::vector<std::string> FileSystemClient::GetDirectories()
 
 bool FileSystemClient::GetIsWritable()
 {
-	if(access(m_repository.c_str(), W_OK) == 0)
-	{
-		return true;
-	}
-	else
+	std::error_code ec;
+
+	if(!std::filesystem::exists(m_repository, ec) || !std::filesystem::is_directory(m_repository, ec))
 	{
 		return false;
 	}
+
+	std::filesystem::space(m_repository, ec);
+	if(ec)
+	{
+		return false;
+	}
+
+	return (access(m_repository.c_str(), W_OK) == 0);
 }
 
 double FileSystemClient::BenchmarkWriteSpeed(const std::string& filename, size_t fileSizeMB)
