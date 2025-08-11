@@ -1,40 +1,41 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Create and enable a systemd service for the Tecscanner Flask app.
+set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="${SCRIPT_DIR}/.."
-SERVICE_FILE="/etc/systemd/system/mandeye.service"
+SERVICE_NAME=mandeye
 
-if [[ -f "$SERVICE_FILE" ]]; then
-  echo "Service already configured at $SERVICE_FILE"
+if [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+  echo "Service ${SERVICE_NAME} already installed."
   exit 0
 fi
 
-WEB_PORT="5000"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+USER_NAME=${SUDO_USER:-$(whoami)}
 
-PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
-if [[ ! -x "$PYTHON_BIN" ]]; then
-  PYTHON_BIN="$(command -v python3 || command -v python)"
+PYTHON_BIN="$PROJECT_ROOT/.venv/bin/python"
+if [ ! -f "$PYTHON_BIN" ]; then
+  PYTHON_BIN=$(command -v python3)
 fi
 
-sudo tee "$SERVICE_FILE" > /dev/null <<SERVICE
+sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null <<SERVICE
 [Unit]
 Description=Mandeye Flask Service
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=${ROOT_DIR}
-ExecStart=${PYTHON_BIN} -m flask run --host=0.0.0.0 --port=${WEB_PORT}
+User=${USER_NAME}
+WorkingDirectory=${PROJECT_ROOT}
+Environment=FLASK_APP=app.py
+ExecStart=${PYTHON_BIN} -m flask --app web/app.py run --host=0.0.0.0 --port=5000
 Restart=on-failure
-Environment=PYTHONPATH=${ROOT_DIR}
-Environment=FLASK_APP=web/app.py
 
 [Install]
 WantedBy=multi-user.target
 SERVICE
 
 sudo systemctl daemon-reload
-sudo systemctl enable mandeye.service
+sudo systemctl enable ${SERVICE_NAME}
+sudo systemctl start ${SERVICE_NAME}
 
-echo "Service installed to $SERVICE_FILE"
+echo "Service ${SERVICE_NAME} installed and started."
