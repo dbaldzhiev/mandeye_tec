@@ -10,11 +10,7 @@ if [[ -f "$SERVICE_FILE" ]]; then
   exit 0
 fi
 
-if command -v jq >/dev/null 2>&1; then
-  WEB_PORT="$(jq -r '.web_port // 5000' "${ROOT_DIR}/config/mandeye_config.json" 2>/dev/null)"
-else
-  WEB_PORT="5000"
-fi
+WEB_PORT="5000"
 
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 if [[ ! -x "$PYTHON_BIN" ]]; then

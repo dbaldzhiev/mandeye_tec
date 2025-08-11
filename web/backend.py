@@ -5,19 +5,6 @@ import json
 import threading
 import time
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'mandeye_config.json')
-
-
-def load_config():
-    try:
-        with open(CONFIG_PATH) as f:
-            return json.load(f)
-    except OSError:
-        return {}
-
-
-config = load_config()
-
 LIB_PATH = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmandeye_core.so')
 lib = ctypes.CDLL(LIB_PATH)
 
