@@ -1,9 +1,9 @@
-import ctypes
 import os
 import atexit
 import json
 import threading
 import time
+import ctypes
 
 LIB_PATH = os.path.join(os.path.dirname(__file__), '..', 'build', 'libmandeye_core.so')
 lib = ctypes.CDLL(LIB_PATH)
