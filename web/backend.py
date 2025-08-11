@@ -27,7 +27,8 @@ def poll_status():
         try:
             status_cache = json.loads(raw)
         except json.JSONDecodeError:
-            status_cache = {}
+            # Keep the last valid status if JSON parsing fails
+            continue
         time.sleep(1)
 
 

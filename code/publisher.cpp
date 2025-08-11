@@ -44,15 +44,16 @@ void Publisher::worker()
 			data["mode"] = m_mode;
 			m_lastTime = time;
 		}
-		else
-		{
-			// short report
-			std::unique_lock<std::mutex> lock(m_mutex);
-			data["time"] = static_cast<uint64_t>(time*1e9);
-			data["dur"] = static_cast<uint64_t>(elapsed*1e9);
-		}
-		publish(data);
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                else
+                {
+                        // short report
+                        std::unique_lock<std::mutex> lock(m_mutex);
+                        data["time"] = static_cast<uint64_t>(time*1e9);
+                        data["dur"] = static_cast<uint64_t>(elapsed*1e9);
+                        data["mode"] = m_mode;
+                }
+                publish(data);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	}
 }
